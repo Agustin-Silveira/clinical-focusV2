@@ -262,13 +262,13 @@
             </div>
 
             <!-- MODULE: SPOTIFY AUDIO TERAPIA (OAUTH IMPLICIT FLOW) -->
-            <div class="glass-panel p-6 flex flex-col flex-grow" id="spotify-module">
+            <div class="glass-panel p-6 flex flex-col" id="spotify-module">
                 <h2 class="text-sm font-medium text-slate-300 mb-4 uppercase tracking-wide border-b border-slate-700 pb-2 flex justify-between items-center">
                     <span><i class="fa-brands fa-spotify mr-2 text-[#1DB954]"></i>Audio Terapia (Spotify)</span>
                 </h2>
                 
                 <!-- Unauthenticated State -->
-                <div id="spotify-unauth" class="flex flex-col items-center justify-center p-4 text-center gap-3 flex-grow">
+                <div id="spotify-unauth" class="flex flex-col items-center justify-center p-4 text-center gap-3">
                     <p class="text-xs text-slate-400">Conecta tu cuenta para sincronizar tus Playlists de concentración.</p>
                     <button id="btn-spotify-connect" class="bg-[#1DB954] hover:bg-[#1ed760] text-slate-950 font-bold px-4 py-2.5 rounded-full text-xs transition shadow-[0_0_15px_rgba(29,185,84,0.4)] flex items-center gap-2">
                         <i class="fa-brands fa-spotify text-base"></i> Conectar mi Spotify
@@ -276,7 +276,7 @@
                 </div>
 
                 <!-- Authenticated State -->
-                <div id="spotify-auth" class="hidden flex-col gap-3 flex-grow">
+                <div id="spotify-auth" class="hidden flex-col gap-3">
                     <div class="flex justify-between items-center text-xs text-slate-400">
                         <span class="font-medium text-slate-300">Tus Playlists:</span>
                         <button id="btn-spotify-logout" class="text-[10px] text-slate-500 hover:text-clinical-red transition">Desconectar</button>
@@ -288,8 +288,8 @@
                     </div>
 
                     <!-- Embed Iframe -->
-                    <div class="relative w-full h-[350px] flex-grow rounded-xl overflow-hidden mt-1 border border-slate-700 bg-slate-950">
-                        <iframe id="spotify-player-iframe" src="about:blank" width="100%" height="350" class="w-full h-full" frameborder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+                    <div class="relative w-full h-[152px] rounded-xl overflow-hidden mt-1 border border-slate-700 bg-slate-950">
+                        <iframe id="spotify-player-iframe" src="about:blank" width="100%" height="152" class="w-full h-full" frameborder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
                     </div>
                 </div>
             </div>
@@ -315,18 +315,38 @@
                     </div>
                 </div>
             </section>
+
+            <!-- MODULE 7: GOOGLE MEET DE GUARDIAS -->
+            <section class="glass-panel p-4 flex items-center justify-between gap-3 shrink-0 relative overflow-hidden border-clinical-yellow/20" style="border-color: rgba(234, 179, 8, 0.2);">
+                <div class="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-yellow-500/5 pointer-events-none"></div>
+                
+                <div class="flex items-center gap-3 min-w-0 relative z-10">
+                    <div class="w-9 h-9 rounded-full bg-slate-900 border border-slate-700 flex shrink-0 items-center justify-center text-clinical-yellow shadow-[0_0_10px_rgba(234,179,8,0.2)] text-sm">
+                        <i class="fa-solid fa-video"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-[9px] uppercase tracking-widest text-clinical-yellow font-bold mb-0.5">Guardia en Vivo</p>
+                        <p class="text-xs font-semibold text-slate-200 truncate">Meet de Estudio</p>
+                    </div>
+                </div>
+
+                <a href="https://meet.google.com/bcm-qvqc-rvm" target="_blank" 
+                   class="bg-clinical-yellow/20 text-clinical-yellow border border-clinical-yellow/50 hover:bg-clinical-yellow hover:text-slate-900 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all hover:scale-105 active:scale-95 duration-200 shadow-[0_0_10px_rgba(234,179,8,0.2)] flex items-center gap-1.5 shrink-0 relative z-10">
+                    <i class="fa-solid fa-up-right-from-square text-[10px]"></i> Unirse al Meet
+                </a>
+            </section>
         </section>
 
         <!-- COLUMN 2: EVOLUCIONES & AGENDA -->
         <div class="lg:col-span-4 flex flex-col gap-6 h-full">
-            <!-- MODULE 2: EVOLUCIONES (TO-DO) -->
-            <section class="glass-panel p-6 flex flex-col flex-1 min-h-[360px]">
+            <!-- MODULE 2: EVOLUCIONES (TO-DO) (55% ALTURA) -->
+            <section class="glass-panel p-6 flex flex-col min-h-0" style="flex: 55 55 0%;">
                 <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
                     <h2 class="text-sm font-medium text-slate-300 uppercase tracking-wide"><i class="fa-solid fa-clipboard-user mr-2 text-clinical-blue"></i>Evoluciones (To-Do)</h2>
                     <button id="btn-clear-tasks" class="text-xs text-clinical-red hover:text-red-400 transition" title="Eliminar todas las tareas"><i class="fa-solid fa-trash-can"></i> Limpiar</button>
                 </div>
                 
-                <div class="flex-grow overflow-y-auto mb-4 pr-2 min-h-[160px] max-h-[260px]" id="task-list">
+                <div class="flex-grow overflow-y-auto mb-4 pr-2 min-h-0" id="task-list">
                     <!-- Tasks injected here -->
                 </div>
 
@@ -349,8 +369,8 @@
                 </form>
             </section>
 
-            <!-- MODULE: AGENDA DE GUARDIAS -->
-            <section class="glass-panel p-6 flex flex-col flex-1 min-h-[360px]">
+            <!-- MODULE: AGENDA DE GUARDIAS (45% ALTURA) -->
+            <section class="glass-panel p-6 flex flex-col min-h-0" style="flex: 45 45 0%;">
                 <h2 class="text-sm font-medium text-slate-300 uppercase tracking-wide mb-4 border-b border-slate-700 pb-2"><i class="fa-solid fa-calendar-days mr-2 text-clinical-blue"></i>Agenda de Guardias y Turnos</h2>
                 
                 <div id="calendar-setup" class="flex flex-col gap-2 mb-2">
@@ -363,7 +383,7 @@
                     </div>
                 </div>
 
-                <div id="calendar-view" class="hidden relative w-full flex-grow rounded overflow-hidden border border-slate-700 bg-slate-900/80 min-h-[220px]">
+                <div id="calendar-view" class="hidden relative w-full flex-grow min-h-[160px] rounded overflow-hidden border border-slate-700 bg-slate-900/80">
                     <iframe id="calendar-iframe" class="absolute inset-0 w-full h-full dark-calendar-filter" src="about:blank" frameborder="0" scrolling="no"></iframe>
                     <button id="btn-edit-calendar" class="absolute top-2 right-2 bg-slate-800/80 hover:bg-slate-700 text-white w-6 h-6 rounded flex items-center justify-center transition border border-slate-600 shadow-md" title="Editar Calendario"><i class="fa-solid fa-pen text-[10px]"></i></button>
                 </div>
@@ -579,8 +599,8 @@
             <!-- FAB Button -->
             <button id="chat-fab" class="w-14 h-14 bg-clinical-blue text-white rounded-full shadow-[0_0_15px_rgba(14,165,233,0.6)] flex items-center justify-center hover:scale-110 transition-transform relative z-50">
                 <i class="fa-solid fa-pager text-xl"></i>
-                <!-- Unread Badge -->
-                <span id="chat-badge" class="absolute -top-1 -right-1 w-5 h-5 bg-clinical-red text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-slate-900 hidden transition-transform scale-0">0</span>
+                <!-- Unread Red Dot Badge -->
+                <span id="chat-badge" class="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-clinical-red rounded-full border-2 border-slate-900 shadow-[0_0_10px_rgba(239,68,68,0.9)] hidden transition-all duration-300 scale-0"></span>
             </button>
         </div>
 
@@ -2377,7 +2397,6 @@
 
         function updateChatBadge() {
             if(unreadChatCount > 0 && !isChatOpen) {
-                peerEls.chatBadge.textContent = unreadChatCount > 9 ? '9+' : unreadChatCount;
                 peerEls.chatBadge.classList.remove('hidden');
                 setTimeout(() => peerEls.chatBadge.classList.remove('scale-0'), 50);
             } else {
@@ -2588,6 +2607,10 @@
                     appendChatMessage(data.sender || 'Amigo', data.text, false);
                 } else if (data.type === 'fuerzas') {
                     showFuerzasToast(data.sender || 'Amigo', data.message);
+                    if (!isChatOpen) {
+                        unreadChatCount++;
+                        updateChatBadge();
+                    }
                 }
             });
 
