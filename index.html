@@ -78,7 +78,7 @@
         }
 
         /* SVG Circular Timer */
-        .timer-ring { transition: stroke-dashoffset 1s linear; }
+        .timer-ring { transition: stroke-dashoffset 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
 
         /* Patient EKG Animations */
         @keyframes ekg-critical {
@@ -239,7 +239,7 @@
                         </div>
                     </div>
 
-                    <div class="flex gap-3 mb-6">
+                    <div class="flex gap-3 mb-4">
                         <button id="btn-start" class="w-12 h-12 rounded-full bg-clinical-blue text-white flex items-center justify-center hover:bg-blue-500 hover:scale-105 active:scale-95 transition-transform duration-200 shadow-lg focus:outline-none">
                             <i class="fa-solid fa-play"></i>
                         </button>
@@ -249,6 +249,28 @@
                         <button id="btn-skip" class="w-10 h-10 rounded-full bg-slate-700 text-white flex items-center justify-center hover:bg-slate-600 hover:scale-105 active:scale-95 transition-transform duration-200 shadow-lg focus:outline-none self-center">
                             <i class="fa-solid fa-forward-step"></i>
                         </button>
+                    </div>
+
+                    <!-- Live Time Extension Controls (Aesthetic Redesign) -->
+                    <div class="w-full mb-5 p-2 bg-slate-900/80 backdrop-blur-md rounded-2xl border border-slate-800/80 shadow-[0_4px_20px_rgba(0,0,0,0.3)] flex flex-col gap-2 transition-all">
+                        <div class="flex items-center justify-between px-1">
+                            <span class="text-[10px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1.5">
+                                <i class="fa-solid fa-clock-rotate-left text-clinical-blue animate-pulse"></i> Extender Guardia
+                            </span>
+                            <span class="text-[9px] font-mono text-slate-500 uppercase">+Minutos al vuelo</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" class="btn-add-time flex-1 py-1.5 rounded-xl bg-slate-800/90 hover:bg-clinical-blue/20 text-slate-200 hover:text-white border border-slate-700/80 hover:border-clinical-blue/50 text-xs font-mono font-bold transition-all hover:scale-105 active:scale-95 shadow-sm text-center" data-mins="5">+5 min</button>
+                            <button type="button" class="btn-add-time flex-1 py-1.5 rounded-xl bg-slate-800/90 hover:bg-clinical-blue/20 text-slate-200 hover:text-white border border-slate-700/80 hover:border-clinical-blue/50 text-xs font-mono font-bold transition-all hover:scale-105 active:scale-95 shadow-sm text-center" data-mins="10">+10 min</button>
+                            
+                            <!-- Sleek Custom Min Pill Input -->
+                            <form id="form-custom-add-time" class="flex-1 flex items-center bg-slate-950/90 border border-slate-700/80 focus-within:border-clinical-blue rounded-xl p-0.5 transition-all shadow-inner relative group">
+                                <input type="number" id="custom-add-mins" placeholder="min..." min="1" max="180" class="w-full bg-transparent text-center text-xs text-white placeholder-slate-500 font-mono focus:outline-none px-1.5 py-1 min-w-0">
+                                <button type="submit" class="w-6 h-6 rounded-lg bg-clinical-blue text-white hover:bg-blue-500 flex items-center justify-center text-xs font-bold transition-transform hover:scale-105 active:scale-95 shadow-md shrink-0" title="Sumar minutos personalizados">
+                                    <i class="fa-solid fa-plus text-[10px]"></i>
+                                </button>
+                            </form>
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-3 gap-2 w-full mb-6">
@@ -638,6 +660,33 @@
                             <label class="text-sm text-slate-300">Pausa Larga</label>
                             <input type="number" id="cfg-time-long" class="w-20 bg-slate-800 border border-slate-600 rounded p-1 text-center text-white" min="1" max="60">
                         </div>
+
+                        <!-- Pomofocus Automation Settings -->
+                        <div class="pt-3 border-t border-slate-700/60 space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-slate-300 font-medium">Auto Start Breaks</span>
+                                <label class="relative inline-flex items-center cursor-pointer select-none">
+                                    <input type="checkbox" id="cfg-auto-start-breaks" class="sr-only peer">
+                                    <div class="w-8 h-4 bg-slate-800 border border-slate-700 rounded-full peer peer-checked:bg-clinical-blue/40 peer-checked:border-clinical-blue/60 transition-all"></div>
+                                    <div class="absolute left-0.5 top-0.5 w-3 h-3 bg-slate-400 rounded-full transition-transform peer-checked:translate-x-4 peer-checked:bg-clinical-blue shadow-sm"></div>
+                                </label>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-slate-300 font-medium">Auto Start Pomodoros</span>
+                                <label class="relative inline-flex items-center cursor-pointer select-none">
+                                    <input type="checkbox" id="cfg-auto-start-pomodoros" class="sr-only peer">
+                                    <div class="w-8 h-4 bg-slate-800 border border-slate-700 rounded-full peer peer-checked:bg-clinical-blue/40 peer-checked:border-clinical-blue/60 transition-all"></div>
+                                    <div class="absolute left-0.5 top-0.5 w-3 h-3 bg-slate-400 rounded-full transition-transform peer-checked:translate-x-4 peer-checked:bg-clinical-blue shadow-sm"></div>
+                                </label>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <label class="text-xs text-slate-300 font-medium">Long Break Interval</label>
+                                <div class="flex items-center gap-1.5">
+                                    <input type="number" id="cfg-long-break-interval" class="w-16 bg-slate-800 border border-slate-600 rounded p-1 text-center text-white text-xs" min="1" max="12" value="4">
+                                    <span class="text-[10px] text-slate-400">ciclos</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -731,6 +780,47 @@
                     </div>
                 </div>
             </div>
+
+            <!-- SECTION 4: EFECTOS Y ALERTAS SONORAS -->
+            <div class="mt-8 pt-6 border-t border-slate-700">
+                <h3 class="text-sm font-medium text-slate-300 uppercase tracking-wide mb-4 text-clinical-blue flex items-center gap-2">
+                    <i class="fa-solid fa-volume-high"></i>Efectos y Alertas Sonoras
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Tono Alarma Pomodoro -->
+                    <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 flex flex-col gap-2">
+                        <div class="flex justify-between items-center">
+                            <label class="text-xs font-semibold text-white">Alarma Pomodoro / Fin de Guardia</label>
+                            <button type="button" id="btn-test-alarm" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-clinical-blue border border-slate-700 px-2 py-0.5 rounded transition flex items-center gap-1 hover:scale-105 active:scale-95">
+                                <i class="fa-solid fa-play text-[9px]"></i> Probar
+                            </button>
+                        </div>
+                        <select id="cfg-sound-alarm" class="bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-clinical-blue">
+                            <option value="claro">🔔 Campanilla Clara (Suave)</option>
+                            <option value="hospital">🏥 Monitor Vital (Clínico EKG)</option>
+                            <option value="digital">👾 Alarma Digital (Retro 8-bit)</option>
+                            <option value="zen">🧘 Cuenco Armónico (Zen 432Hz)</option>
+                        </select>
+                    </div>
+
+                    <!-- Tono Notificación Mensajes -->
+                    <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 flex flex-col gap-2">
+                        <div class="flex justify-between items-center">
+                            <label class="text-xs font-semibold text-white">Notificación de Mensajes / Chat</label>
+                            <button type="button" id="btn-test-msg" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-clinical-blue border border-slate-700 px-2 py-0.5 rounded transition flex items-center gap-1 hover:scale-105 active:scale-95">
+                                <i class="fa-solid fa-play text-[9px]"></i> Probar
+                            </button>
+                        </div>
+                        <select id="cfg-sound-msg" class="bg-slate-800 border border-slate-700 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-clinical-blue">
+                            <option value="pager">📟 Pager Clásico (2-Tonos)</option>
+                            <option value="bubble">🫧 Burbuja Soft (Pop)</option>
+                            <option value="ding">🛎️ Campanita Cristal</option>
+                            <option value="pulse">⚡ Pulso Cibernético</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
             
             <div class="mt-8 pt-4 border-t border-slate-700 flex justify-between items-center">
                 <button id="btn-reset-stats" class="text-xs text-clinical-red hover:text-red-400 border border-clinical-red/30 hover:bg-clinical-red/10 px-3 py-2 rounded transition"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Reiniciar Estadísticas</button>
@@ -754,7 +844,7 @@
         // --- INITIAL STATE & DEFAULT DATA ---
         const defaultSubjects = [
             { id: 'sub_1', name: 'Farmacología', color: '#0ea5e9', minutes: 0 },
-            { id: 'sub_2', name: 'Fisiopatología', color: '#ef4444', minutes: 0 },
+            { id: 'sub_2', name: 'Patología', color: '#ef4444', minutes: 0 },
             { id: 'sub_3', name: 'Semiología', color: '#10b981', minutes: 0 }
         ];
 
@@ -770,11 +860,18 @@
         }
 
         let state = {
-            config: safeParse('cf_config', { times: { study: 50, shortBreak: 5, longBreak: 15 } }),
+            config: Object.assign({
+                times: { study: 50, shortBreak: 5, longBreak: 15 },
+                autoStartBreaks: false,
+                autoStartPomodoros: false,
+                longBreakInterval: 4,
+                soundAlarm: 'claro',
+                soundMsg: 'pager'
+            }, safeParse('cf_config', {})),
             subjects: safeParse('cf_subjects', defaultSubjects),
             tasks: safeParse('cf_tasks', []),
             stats: safeParse('cf_stats', { pomodorosToday: 0, hoursToday: 0, weeklyMinutes: [0, 0, 0, 0, 0, 0, 0], lastDate: new Date().toDateString() }),
-            timer: { mode: 'study', timeLeft: 0, isRunning: false, interval: null, activeSubjectId: null },
+            timer: { mode: 'study', timeLeft: 0, totalTime: 0, isRunning: false, interval: null, activeSubjectId: null },
             game: safeParse('cf_game', { active: false, targetPomos: 4, currentPomos: 0, patientId: null }),
             audio: { unlocked: false },
             youtubeId: safeGet('cf_youtubeId', null)
@@ -794,7 +891,7 @@
             state.timer.activeSubjectId = state.subjects[0].id;
         }
 
-        // --- WEB AUDIO API FOR RELIABLE BEEPS ---
+        // --- WEB AUDIO API FOR RELIABLE BEEPS & CUSTOM SOUND PRESETS ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
         function playVitalBeep() {
@@ -815,32 +912,132 @@
             osc.stop(audioCtx.currentTime + 0.3);
         }
 
-        function playSoftChime() {
-            if (!state.audio.unlocked || audioCtx.state === 'suspended') return;
+        function playPomodoroAlarm(presetKey) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            state.audio.unlocked = true;
             const t = audioCtx.currentTime;
-            const vol = 0.5;
-            
-            function createBell(freq, startTime) {
+            const sound = presetKey || (state.config && state.config.soundAlarm) || 'claro';
+
+            if (sound === 'hospital') {
+                // Vital EKG Monitor Beep (Medical)
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
-                
-                osc.type = 'sine'; 
-                osc.frequency.setValueAtTime(freq, startTime);
-                
-                gain.gain.setValueAtTime(0, startTime);
-                gain.gain.linearRampToValueAtTime(vol * 0.7, startTime + 0.05);
-                gain.gain.exponentialRampToValueAtTime(0.001, startTime + 2.5);
-                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, t);
+                osc.frequency.setValueAtTime(1200, t + 0.15);
+                gain.gain.setValueAtTime(0.4, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
                 osc.connect(gain);
                 gain.connect(audioCtx.destination);
-                
-                osc.start(startTime);
-                osc.stop(startTime + 3.0);
+                osc.start(t);
+                osc.stop(t + 0.5);
+            } else if (sound === 'digital') {
+                // 8-bit Retro Alarm
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(freq, t + (idx * 0.08));
+                    gain.gain.setValueAtTime(0.12, t + (idx * 0.08));
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + (idx * 0.08) + 0.1);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(t + (idx * 0.08));
+                    osc.stop(t + (idx * 0.08) + 0.1);
+                });
+            } else if (sound === 'zen') {
+                // Tibetan Singing Bowl (Zen 432Hz)
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(432, t);
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(0.5, t + 0.08);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 2.8);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(t);
+                osc.stop(t + 3.0);
+            } else {
+                // 'claro' - Soft Melodic Chime (C5 -> E5 -> G5)
+                const playBell = (freq, startTime) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, startTime);
+                    gain.gain.setValueAtTime(0, startTime);
+                    gain.gain.linearRampToValueAtTime(0.35, startTime + 0.04);
+                    gain.gain.exponentialRampToValueAtTime(0.001, startTime + 1.8);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(startTime);
+                    osc.stop(startTime + 2.0);
+                };
+                playBell(523.25, t);
+                playBell(659.25, t + 0.3);
+                playBell(783.99, t + 0.6);
             }
+        }
 
-            createBell(523.25, t);         // C5
-            createBell(659.25, t + 0.4);   // E5
-            createBell(783.99, t + 0.8);   // G5
+        function playMessageSound(presetKey) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            state.audio.unlocked = true;
+            const t = audioCtx.currentTime;
+            const sound = presetKey || (state.config && state.config.soundMsg) || 'pager';
+
+            if (sound === 'bubble') {
+                // Soft Bubble Pop
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, t);
+                osc.frequency.exponentialRampToValueAtTime(750, t + 0.08);
+                gain.gain.setValueAtTime(0.3, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(t);
+                osc.stop(t + 0.12);
+            } else if (sound === 'ding') {
+                // Crystal Bell Ding
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1400, t);
+                gain.gain.setValueAtTime(0.35, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(t);
+                osc.stop(t + 0.4);
+            } else if (sound === 'pulse') {
+                // Cyber Pulse Double Click
+                [900, 1400].forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, t + (idx * 0.05));
+                    gain.gain.setValueAtTime(0.3, t + (idx * 0.05));
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + (idx * 0.05) + 0.06);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(t + (idx * 0.05));
+                    osc.stop(t + (idx * 0.05) + 0.06);
+                });
+            } else {
+                // 'pager' - Classic Dual Pager Beep
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(900, t);
+                osc.frequency.setValueAtTime(1300, t + 0.1);
+                gain.gain.setValueAtTime(0.08, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(t);
+                osc.stop(t + 0.2);
+            }
         }
 
         // Unlock audio context on first user interaction
@@ -1121,14 +1318,14 @@
             pipCtx.stroke();
 
             // Progress Ring
-            const mins = state.config.times[state.timer.mode === 'short-break' ? 'shortBreak' : (state.timer.mode === 'long-break' ? 'longBreak' : 'study')];
-            const total = mins * 60;
-            const prog = ((total - state.timer.timeLeft) / total);
+            const defaultMins = state.config.times[state.timer.mode === 'short-break' ? 'shortBreak' : (state.timer.mode === 'long-break' ? 'longBreak' : 'study')];
+            const total = state.timer.totalTime || (defaultMins * 60);
+            const fractionLeft = Math.max(0, Math.min(1, state.timer.timeLeft / total));
             
             pipCtx.strokeStyle = state.timer.mode === 'study' ? '#0ea5e9' : (state.timer.mode === 'short-break' ? '#10b981' : '#8b5cf6');
             pipCtx.lineCap = 'round';
             pipCtx.beginPath();
-            pipCtx.arc(200, 200, 160, -Math.PI/2, (-Math.PI/2) + (Math.PI * 2 * (1 - prog)), false);
+            pipCtx.arc(200, 200, 160, -Math.PI/2, (-Math.PI/2) + (Math.PI * 2 * fractionLeft), false);
             pipCtx.stroke();
 
             // Text
@@ -1155,6 +1352,7 @@
             
             const mins = state.config.times[mode === 'short-break' ? 'shortBreak' : (mode === 'long-break' ? 'longBreak' : 'study')];
             state.timer.timeLeft = mins * 60;
+            state.timer.totalTime = mins * 60;
             
             els.modeBtns.forEach(btn => {
                 if(btn.dataset.mode === mode) {
@@ -1178,11 +1376,12 @@
         function updateTimerUI() {
             els.timerDisplay.textContent = formatTime(state.timer.timeLeft);
             
-            const mins = state.config.times[state.timer.mode === 'short-break' ? 'shortBreak' : (state.timer.mode === 'long-break' ? 'longBreak' : 'study')];
-            const total = mins * 60;
-            const prog = ((total - state.timer.timeLeft) / total) * 283;
-            els.timerProgress.style.strokeDashoffset = prog;
+            const defaultMins = state.config.times[state.timer.mode === 'short-break' ? 'shortBreak' : (state.timer.mode === 'long-break' ? 'longBreak' : 'study')];
+            const total = state.timer.totalTime || (defaultMins * 60);
+            const fractionLeft = Math.max(0, Math.min(1, state.timer.timeLeft / total));
+            const strokeOffset = (1 - fractionLeft) * 283;
             
+            els.timerProgress.style.strokeDashoffset = strokeOffset;
             els.timerProgress.style.stroke = state.timer.mode === 'study' ? '#0ea5e9' : (state.timer.mode === 'short-break' ? '#10b981' : '#8b5cf6');
 
             if (state.timer.isRunning) {
@@ -1219,20 +1418,44 @@
             }
         }
 
+        function startTimer() {
+            if (!state.timer.isRunning) {
+                state.timer.isRunning = true;
+                els.btnStart.classList.add('hidden');
+                els.btnPause.classList.remove('hidden');
+                state.timer.interval = setInterval(timerTick, 1000);
+                if (typeof audioCtx !== 'undefined' && audioCtx.state === 'suspended') audioCtx.resume();
+                syncPopup();
+            }
+        }
+
         function completePhase() {
             clearInterval(state.timer.interval);
             state.timer.isRunning = false;
             
-            playSoftChime();
+            playPomodoroAlarm();
             
-            if (state.timer.mode === 'study') {
+            const prevMode = state.timer.mode;
+
+            if (prevMode === 'study') {
                 state.stats.pomodorosToday++;
                 handleGameProgress();
                 saveState();
                 updateStatsUI();
-                setTimerMode(state.stats.pomodorosToday % 4 === 0 ? 'long-break' : 'short-break');
+                
+                const interval = state.config.longBreakInterval || 4;
+                const isLongBreak = (state.stats.pomodorosToday % interval === 0);
+                setTimerMode(isLongBreak ? 'long-break' : 'short-break');
+
+                if (state.config.autoStartBreaks) {
+                    startTimer();
+                }
             } else {
                 setTimerMode('study');
+
+                if (state.config.autoStartPomodoros) {
+                    startTimer();
+                }
             }
         }
 
@@ -1255,16 +1478,7 @@
             }
         }
 
-        els.btnStart.addEventListener('click', () => {
-            if (!state.timer.isRunning) {
-                state.timer.isRunning = true;
-                els.btnStart.classList.add('hidden');
-                els.btnPause.classList.remove('hidden');
-                state.timer.interval = setInterval(timerTick, 1000);
-                if (typeof audioCtx !== 'undefined' && audioCtx.state === 'suspended') audioCtx.resume();
-                syncPopup();
-            }
-        });
+        els.btnStart.addEventListener('click', startTimer);
 
         els.btnPause.addEventListener('click', () => {
             clearInterval(state.timer.interval);
@@ -1281,6 +1495,35 @@
             completePhase();
             syncPopup();
         });
+
+        // --- LIVE TIME EXTENSION LOGIC ---
+        function addExtraTime(minutes) {
+            const mins = parseInt(minutes);
+            if (isNaN(mins) || mins <= 0) return;
+            const addedSecs = mins * 60;
+            state.timer.timeLeft += addedSecs;
+            state.timer.totalTime = (state.timer.totalTime || state.timer.timeLeft) + addedSecs;
+            updateTimerUI();
+        }
+
+        document.querySelectorAll('.btn-add-time').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const mins = parseInt(btn.dataset.mins);
+                addExtraTime(mins);
+            });
+        });
+
+        const customTimeForm = document.getElementById('form-custom-add-time');
+        if (customTimeForm) {
+            customTimeForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const input = document.getElementById('custom-add-mins');
+                if (input && input.value) {
+                    addExtraTime(input.value);
+                    input.value = '';
+                }
+            });
+        }
 
         const btnPip = document.getElementById('btn-pip');
         const iconPip = document.getElementById('icon-pip');
@@ -1966,8 +2209,32 @@
             els.cfgTimes.study.value = state.config.times.study;
             els.cfgTimes.short.value = state.config.times.shortBreak;
             els.cfgTimes.long.value = state.config.times.longBreak;
+
+            const autoBreaksCheck = document.getElementById('cfg-auto-start-breaks');
+            const autoPomosCheck = document.getElementById('cfg-auto-start-pomodoros');
+            const longIntervalInput = document.getElementById('cfg-long-break-interval');
+            const soundAlarmSelect = document.getElementById('cfg-sound-alarm');
+            const soundMsgSelect = document.getElementById('cfg-sound-msg');
+            
+            if (autoBreaksCheck) autoBreaksCheck.checked = !!state.config.autoStartBreaks;
+            if (autoPomosCheck) autoPomosCheck.checked = !!state.config.autoStartPomodoros;
+            if (longIntervalInput) longIntervalInput.value = state.config.longBreakInterval || 4;
+            if (soundAlarmSelect) soundAlarmSelect.value = state.config.soundAlarm || 'claro';
+            if (soundMsgSelect) soundMsgSelect.value = state.config.soundMsg || 'pager';
+
             renderConfigSubjects();
             els.configModal.classList.remove('hidden');
+        });
+
+        // Test buttons for sound presets
+        document.getElementById('btn-test-alarm')?.addEventListener('click', () => {
+            const val = document.getElementById('cfg-sound-alarm')?.value || 'claro';
+            playPomodoroAlarm(val);
+        });
+
+        document.getElementById('btn-test-msg')?.addEventListener('click', () => {
+            const val = document.getElementById('cfg-sound-msg')?.value || 'pager';
+            playMessageSound(val);
         });
 
         els.btnCloseConfig.addEventListener('click', () => els.configModal.classList.add('hidden'));
@@ -2014,6 +2281,18 @@
             state.config.times.shortBreak = parseInt(els.cfgTimes.short.value) || 5;
             state.config.times.longBreak = parseInt(els.cfgTimes.long.value) || 15;
             
+            const autoBreaksCheck = document.getElementById('cfg-auto-start-breaks');
+            const autoPomosCheck = document.getElementById('cfg-auto-start-pomodoros');
+            const longIntervalInput = document.getElementById('cfg-long-break-interval');
+            const soundAlarmSelect = document.getElementById('cfg-sound-alarm');
+            const soundMsgSelect = document.getElementById('cfg-sound-msg');
+            
+            if (autoBreaksCheck) state.config.autoStartBreaks = autoBreaksCheck.checked;
+            if (autoPomosCheck) state.config.autoStartPomodoros = autoPomosCheck.checked;
+            if (longIntervalInput) state.config.longBreakInterval = Math.max(1, parseInt(longIntervalInput.value) || 4);
+            if (soundAlarmSelect) state.config.soundAlarm = soundAlarmSelect.value;
+            if (soundMsgSelect) state.config.soundMsg = soundMsgSelect.value;
+
             saveState();
             
             if(!state.timer.isRunning) setTimerMode(state.timer.mode);
@@ -2641,21 +2920,7 @@
         }
 
         function playPagerSound() {
-            if(typeof audioCtx === 'undefined') return;
-            if(audioCtx.state === 'suspended') audioCtx.resume();
-            try {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'square';
-                osc.frequency.setValueAtTime(900, audioCtx.currentTime);
-                osc.frequency.setValueAtTime(1300, audioCtx.currentTime + 0.1);
-                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.2);
-            } catch(e) {}
+            playMessageSound();
         }
 
         function playFuerzasSound() {
