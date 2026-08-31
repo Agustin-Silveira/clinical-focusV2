@@ -107,31 +107,6 @@
             filter: invert(0.9) hue-rotate(180deg) contrast(1.1);
         }
 
-        /* Micro-Animations */
-        @keyframes fadeInTask {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-            animation: fadeInTask 0.35s ease-out forwards;
-        }
-
-        @keyframes patientBreathing {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-2px); }
-        }
-        .animate-breathing {
-            animation: patientBreathing 3s ease-in-out infinite;
-        }
-
-        @keyframes ringPulse {
-            0%, 100% { filter: drop-shadow(0 0 6px rgba(14, 165, 233, 0.4)); }
-            50% { filter: drop-shadow(0 0 16px rgba(14, 165, 233, 0.8)); }
-        }
-        .timer-ring-active {
-            animation: ringPulse 2s ease-in-out infinite;
-        }
-
         .celebration {
             position: fixed; inset: 0; pointer-events: none; z-index: 100;
             display: none; justify-content: center; align-items: center;
@@ -165,23 +140,18 @@
         <section class="lg:col-span-4 flex flex-col gap-6 h-full">
             
             <!-- GAMIFICATION: PATIENT WARD -->
-            <div class="glass-panel p-6 relative overflow-hidden flex flex-col animate-breathing" id="patient-ward">
+            <div class="glass-panel p-6 relative overflow-hidden flex flex-col" id="patient-ward">
                 <h2 class="text-sm font-medium text-slate-300 mb-4 uppercase tracking-wide border-b border-slate-700 pb-2">
                     <i class="fa-solid fa-bed-pulse mr-2 text-clinical-blue"></i>Sala de Urgencias (Retro)
                 </h2>
                 
                 <div id="game-setup" class="mb-4">
                     <p class="text-xs text-slate-400 mb-3">Define tu Turno de Guardia para admitir a un paciente.</p>
-                    <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-                        <span class="text-xs text-slate-300 font-medium">Pomodoros a completar:</span>
-                        <div class="flex items-center gap-2 bg-slate-800/80 p-1 rounded-lg border border-slate-700">
-                            <button id="btn-target-dec" type="button" class="w-7 h-7 rounded-md bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center transition hover:scale-105 active:scale-95 text-xs font-bold"><i class="fa-solid fa-minus"></i></button>
-                            <span id="target-pomodoros-display" class="w-6 text-center font-mono font-bold text-white text-base">4</span>
-                            <input type="hidden" id="target-pomodoros" value="4">
-                            <button id="btn-target-inc" type="button" class="w-7 h-7 rounded-md bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center transition hover:scale-105 active:scale-95 text-xs font-bold"><i class="fa-solid fa-plus"></i></button>
-                        </div>
+                    <div class="flex gap-2">
+                        <input type="number" id="target-pomodoros" min="1" max="12" value="4" class="w-16 bg-slate-800 border border-slate-700 rounded p-1 text-center text-sm focus:outline-none focus:border-clinical-blue">
+                        <span class="text-sm text-slate-300 self-center">Pomodoros a completar</span>
                     </div>
-                    <button id="btn-admit-patient" class="mt-3 w-full bg-clinical-blue/20 text-clinical-blue border border-clinical-blue/50 hover:bg-clinical-blue hover:text-white py-2 rounded-lg text-sm transition hover:scale-105 active:scale-95 duration-200 font-semibold shadow-md">
+                    <button id="btn-admit-patient" class="mt-3 w-full bg-clinical-blue/20 text-clinical-blue border border-clinical-blue/50 hover:bg-clinical-blue hover:text-white py-2 rounded text-sm transition font-semibold">
                         Ingresar Paciente
                     </button>
                 </div>
@@ -194,7 +164,7 @@
                         </div>
                         <div class="flex flex-col items-end">
                             <div class="text-lg font-mono font-bold" id="patient-hp-text">20%</div>
-                            <button id="btn-kill-patient" class="text-[9px] uppercase tracking-widest text-slate-500 hover:text-clinical-red transition hover:scale-105 active:scale-95 duration-200 mt-1" title="Cancelar guardia">
+                            <button id="btn-kill-patient" class="text-[9px] uppercase tracking-widest text-slate-500 hover:text-clinical-red transition mt-1" title="Cancelar guardia">
                                 <i class="fa-solid fa-skull"></i> Matar Paciente
                             </button>
                         </div>
@@ -226,18 +196,18 @@
                         <div class="relative z-10 flex flex-col items-center">
                             <div id="timer-display" class="text-4xl font-mono font-bold text-white tracking-wider">00:00</div>
                             <div id="timer-mode-label" class="text-[10px] uppercase tracking-widest text-clinical-blue mt-1 font-semibold">Ronda de Guardia</div>
-                            <button id="btn-pip" class="mt-3 text-[10px] text-slate-400 hover:text-white transition hover:scale-105 active:scale-95 duration-200 bg-slate-800/80 px-2.5 py-1.5 rounded border border-slate-700" title="Reloj Flotante (Mini-reloj)"><i class="fa-regular fa-window-restore mr-1" id="icon-pip"></i>Mini-reloj</button>
+                            <button id="btn-pip" class="mt-3 text-[10px] text-slate-400 hover:text-white transition bg-slate-800/80 px-2.5 py-1.5 rounded border border-slate-700" title="Reloj Flotante (Mini-reloj)"><i class="fa-regular fa-window-restore mr-1" id="icon-pip"></i>Mini-reloj</button>
                         </div>
                     </div>
 
                     <div class="flex gap-3 mb-6">
-                        <button id="btn-start" class="w-12 h-12 rounded-full bg-clinical-blue text-white flex items-center justify-center hover:bg-blue-500 hover:scale-105 active:scale-95 transition-transform duration-200 shadow-lg focus:outline-none">
+                        <button id="btn-start" class="w-12 h-12 rounded-full bg-clinical-blue text-white flex items-center justify-center hover:bg-blue-500 transition shadow-lg focus:outline-none">
                             <i class="fa-solid fa-play"></i>
                         </button>
-                        <button id="btn-pause" class="w-10 h-10 rounded-full bg-slate-700 text-white flex items-center justify-center hover:bg-slate-600 hover:scale-105 active:scale-95 transition-transform duration-200 shadow-lg focus:outline-none self-center">
+                        <button id="btn-pause" class="w-10 h-10 rounded-full bg-slate-700 text-white flex items-center justify-center hover:bg-slate-600 transition shadow-lg focus:outline-none self-center">
                             <i class="fa-solid fa-pause"></i>
                         </button>
-                        <button id="btn-skip" class="w-10 h-10 rounded-full bg-slate-700 text-white flex items-center justify-center hover:bg-slate-600 hover:scale-105 active:scale-95 transition-transform duration-200 shadow-lg focus:outline-none self-center">
+                        <button id="btn-skip" class="w-10 h-10 rounded-full bg-slate-700 text-white flex items-center justify-center hover:bg-slate-600 transition shadow-lg focus:outline-none self-center">
                             <i class="fa-solid fa-forward-step"></i>
                         </button>
                     </div>
@@ -616,16 +586,10 @@
                 <div>
                     <h3 class="text-sm font-medium text-slate-300 uppercase tracking-wide mb-4 text-clinical-blue">Especialidades (Materias)</h3>
                     
-                    <form id="form-add-subject" class="flex flex-col gap-2 mb-4">
-                        <div class="flex gap-2">
-                            <input type="text" id="cfg-subject-name" placeholder="Nueva materia..." required class="flex-grow bg-slate-800 border border-slate-600 rounded p-1.5 text-sm text-white focus:outline-none focus:border-clinical-blue">
-                            <input type="hidden" id="cfg-subject-color" value="#0ea5e9">
-                            <button type="submit" class="bg-clinical-blue/20 text-clinical-blue border border-clinical-blue/50 hover:bg-clinical-blue hover:text-white px-3 py-1 rounded text-sm transition hover:scale-105 active:scale-95 duration-200"><i class="fa-solid fa-plus"></i></button>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-[10px] text-slate-400 uppercase">Color:</span>
-                            <div id="subject-color-palette" class="flex flex-wrap gap-1.5 p-1 bg-slate-800/80 rounded-lg border border-slate-700/60"></div>
-                        </div>
+                    <form id="form-add-subject" class="flex gap-2 mb-4">
+                        <input type="text" id="cfg-subject-name" placeholder="Nueva materia..." required class="flex-grow bg-slate-800 border border-slate-600 rounded p-1.5 text-sm text-white">
+                        <input type="color" id="cfg-subject-color" value="#0ea5e9" class="w-8 h-8 rounded border border-slate-600 p-0 cursor-pointer bg-slate-800">
+                        <button type="submit" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded text-sm"><i class="fa-solid fa-plus"></i></button>
                     </form>
                     
                     <div id="cfg-subjects-list" class="space-y-2 max-h-40 overflow-y-auto pr-2">
@@ -1086,12 +1050,6 @@
             els.timerProgress.style.strokeDashoffset = prog;
             
             els.timerProgress.style.stroke = state.timer.mode === 'study' ? '#0ea5e9' : (state.timer.mode === 'short-break' ? '#10b981' : '#8b5cf6');
-
-            if (state.timer.isRunning) {
-                els.timerProgress.classList.add('timer-ring-active');
-            } else {
-                els.timerProgress.classList.remove('timer-ring-active');
-            }
 
             updatePiPCanvas();
             
@@ -1777,7 +1735,7 @@
             
             state.tasks.forEach((task, idx) => {
                 const div = document.createElement('div');
-                div.className = `flex items-center gap-3 p-3 mb-2 rounded border ${task.completed ? 'border-slate-800 bg-slate-900/40 task-completed' : 'border-slate-700 bg-slate-800/80'} transition-all animate-fade-in`;
+                div.className = `flex items-center gap-3 p-3 mb-2 rounded border ${task.completed ? 'border-slate-800 bg-slate-900/40 task-completed' : 'border-slate-700 bg-slate-800/80'} transition-all`;
                 
                 let pagesHtml = '';
                 if (task.hasPages) {
@@ -2264,29 +2222,22 @@
         
         const PRESET_COLORS = {
             bg: ['#0f172a', '#171717', '#1e1b4b', '#064e3b', '#450a0a', '#1e293b'],
-            bubbles: [
-                '#0ea5e9', '#6ee7b7', '#a78bfa', '#f472b6', '#fb923c', '#bae6fd', '#fef08a',
-                '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#1e293b', '#475569'
-            ]
+            bubbles: ['#0ea5e9', '#10b981', '#f43f5e', '#8b5cf6', '#f59e0b', '#1e293b', '#475569', '#334155']
         };
 
         function renderPalette(containerId, inputEl, colorList, currentColor, type) {
             const container = document.getElementById(containerId);
-            if (!container || !inputEl) return;
             container.innerHTML = '';
             colorList.forEach(color => {
                 const btn = document.createElement('button');
-                btn.type = 'button';
                 btn.className = `w-5 h-5 rounded-full cursor-pointer transition-transform hover:scale-110 border-2 ${currentColor === color ? 'border-white scale-110 shadow-[0_0_8px_rgba(255,255,255,0.5)]' : 'border-transparent'}`;
                 btn.style.backgroundColor = color;
                 btn.addEventListener('click', () => {
                     inputEl.value = color;
-                    if (type && chatColors[type] !== undefined) {
-                        chatColors[type] = color;
-                        safeSet('cf_chatColors', chatColors);
-                        applyChatColors();
-                    }
-                    renderPalette(containerId, inputEl, colorList, color, type);
+                    chatColors[type] = color;
+                    safeSet('cf_chatColors', chatColors);
+                    applyChatColors();
+                    renderPalette(containerId, inputEl, colorList, color, type); // Re-render to update selected border
                 });
                 container.appendChild(btn);
             });
@@ -2311,36 +2262,12 @@
             peerEls.chatContainer.style.setProperty('--chat-me', chatColors.me);
             peerEls.chatContainer.style.setProperty('--chat-them', chatColors.them);
         }
-
+        
         applyChatColors();
         renderPalette('palette-bg', peerEls.colorBg, PRESET_COLORS.bg, chatColors.bg, 'bg');
         renderPalette('palette-me', peerEls.colorMe, PRESET_COLORS.bubbles, chatColors.me, 'me');
         renderPalette('palette-them', peerEls.colorThem, PRESET_COLORS.bubbles, chatColors.them, 'them');
-        renderPalette('subject-color-palette', document.getElementById('cfg-subject-color'), PRESET_COLORS.bubbles, '#0ea5e9', 'subjectColor');
 
-        // Target Pomodoros Custom Stepper Handlers
-        const targetDecBtn = document.getElementById('btn-target-dec');
-        const targetIncBtn = document.getElementById('btn-target-inc');
-        const targetDisplay = document.getElementById('target-pomodoros-display');
-        const targetInput = document.getElementById('target-pomodoros');
-
-        if(targetDecBtn && targetIncBtn && targetDisplay && targetInput) {
-            targetDecBtn.addEventListener('click', () => {
-                let val = parseInt(targetInput.value) || 4;
-                if(val > 1) {
-                    val--;
-                    targetInput.value = val;
-                    targetDisplay.textContent = val;
-                }
-            });
-            targetIncBtn.addEventListener('click', () => {
-                let val = parseInt(targetInput.value) || 4;
-                if(val < 12) {
-                    val++;
-                    targetInput.value = val;
-                    targetDisplay.textContent = val;
-                }
-            });
         // Settings events
         peerEls.btnChatSettings.addEventListener('click', () => {
             peerEls.chatSettingsPanel.classList.toggle('hidden');
