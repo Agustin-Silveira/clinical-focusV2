@@ -425,8 +425,49 @@
         <div class="lg:col-span-4 flex flex-col gap-6">
             
             <!-- MODULE 4: YOUTUBE LOFI MONITOR -->
+            <!-- MODULE 4: YOUTUBE LOFI MONITOR -->
             <section class="glass-panel p-6 flex flex-col">
-                <h2 class="text-sm font-medium text-slate-300 w-full mb-4 uppercase tracking-wide border-b border-slate-700 pb-2"><i class="fa-brands fa-youtube mr-2 text-clinical-blue"></i>Monitor Multimedia</h2>
+                <style>
+                    #yt-bookmarks-container::-webkit-scrollbar { display: none; }
+                    #yt-bookmarks-container { -ms-overflow-style: none; scrollbar-width: none; }
+                </style>
+                <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                    <h2 class="text-sm font-medium text-slate-300 uppercase tracking-wide"><i class="fa-brands fa-youtube mr-2 text-clinical-blue"></i>Monitor Multimedia</h2>
+                    <button id="btn-yt-bookmarks-toggle" class="text-slate-400 hover:text-white transition" title="Gestionar Marcadores">
+                        <i class="fa-solid fa-gear"></i>
+                    </button>
+                </div>
+
+                <!-- Quick Access Bookmarks -->
+                <div class="flex overflow-x-auto gap-2 pb-1 mb-2" id="yt-bookmarks-container">
+                    <!-- Bookmarks injected by JS -->
+                </div>
+
+                <!-- Bookmarks Manager (Collapsible) -->
+                <div id="yt-bookmarks-manager" class="grid transition-all duration-500 mb-1" style="grid-template-rows: 0fr; opacity: 0; transition-timing-function: cubic-bezier(0.25, 1, 0.5, 1);">
+                    <div class="overflow-hidden min-h-0">
+                        <div class="bg-slate-900/50 border border-slate-700/50 p-3 rounded-lg flex flex-col gap-3">
+                            <h3 class="text-[11px] font-medium text-slate-300 uppercase tracking-wider">Añadir Marcador</h3>
+                            <form id="form-yt-bookmark" class="flex flex-col gap-2">
+                                <div class="flex gap-2">
+                                    <input type="text" id="yt-bm-emoji" placeholder="Emo" class="w-12 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm text-center focus:outline-none focus:border-clinical-blue">
+                                    <input type="text" id="yt-bm-name" placeholder="Nombre (ej. Lofi Vibes)" required class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1 text-sm text-slate-200 focus:outline-none focus:border-clinical-blue">
+                                </div>
+                                <div class="flex gap-2 items-center">
+                                    <input type="url" id="yt-bm-url" placeholder="URL de YouTube..." required class="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1 text-sm text-slate-200 focus:outline-none focus:border-clinical-blue">
+                                    <input type="color" id="yt-bm-color" value="#0ea5e9" class="w-8 h-8 rounded cursor-pointer bg-transparent border-0" title="Color de acento">
+                                    <button type="submit" class="bg-clinical-blue/20 text-clinical-blue border border-clinical-blue/30 px-3 py-1 rounded hover:bg-clinical-blue hover:text-white transition"><i class="fa-solid fa-plus"></i></button>
+                                </div>
+                            </form>
+                            <div class="border-t border-slate-700 pt-2 mt-1">
+                                <h3 class="text-[11px] font-medium text-slate-300 mb-2 uppercase tracking-wider">Tus Marcadores</h3>
+                                <div id="yt-bookmarks-edit-list" class="flex flex-col gap-2 max-h-32 overflow-y-auto pr-1">
+                                    <!-- List to delete -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 
                 <div class="flex gap-2 mb-4">
                     <input type="text" id="youtube-input" placeholder="Enlace de YouTube..." class="w-full bg-slate-800/50 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-clinical-blue">
@@ -435,7 +476,7 @@
                     </button>
                 </div>
 
-                <div class="relative w-full aspect-video rounded overflow-hidden border border-slate-700 bg-slate-900/80 flex flex-col items-center justify-center">
+                <div class="relative w-full aspect-video rounded overflow-hidden border border-slate-700 bg-slate-900/80 flex flex-col items-center justify-center shrink-0">
                     <div id="youtube-empty" class="flex flex-col items-center justify-center text-slate-500 p-4 text-center absolute inset-0 z-10">
                         <i class="fa-solid fa-display text-3xl mb-2"></i>
                         <p class="text-xs">Ingresa el enlace de YouTube para tu música de concentración o Lofi.</p>
@@ -1263,6 +1304,101 @@
                 alert('Enlace de YouTube no válido.');
             }
         });
+
+        // --- YOUTUBE BOOKMARKS ---
+        const ytBookmarksContainer = document.getElementById('yt-bookmarks-container');
+        const btnYtToggle = document.getElementById('btn-yt-bookmarks-toggle');
+        const ytBookmarksManager = document.getElementById('yt-bookmarks-manager');
+        const formYtBookmark = document.getElementById('form-yt-bookmark');
+        const ytBookmarksEditList = document.getElementById('yt-bookmarks-edit-list');
+
+        let ytBookmarks = safeParse('cf_ytBookmarks', [
+            { id: Date.now().toString(), name: 'Autumn Vibes', emoji: '🍂', color: '#f59e0b', videoId: 'tNkZsRW7h2c' },
+            { id: (Date.now() + 1).toString(), name: 'Space Song', emoji: '🌌', color: '#8b5cf6', videoId: 'RBtlPT23PTM' }
+        ]);
+
+        function renderYtBookmarks() {
+            if (!ytBookmarksContainer || !ytBookmarksEditList) return;
+            
+            ytBookmarksContainer.innerHTML = '';
+            ytBookmarksEditList.innerHTML = '';
+            
+            ytBookmarks.forEach(bm => {
+                // Render Quick Access Chip
+                const chip = document.createElement('button');
+                chip.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 shadow-sm hover:scale-105 transition shrink-0';
+                chip.innerHTML = `
+                    ${bm.emoji ? `<span class="text-xs">${bm.emoji}</span>` : ''}
+                    <span class="text-xs font-medium" style="color: ${bm.color || '#e2e8f0'}">${bm.name}</span>
+                `;
+                chip.addEventListener('click', () => {
+                    loadYouTubeVideo(bm.videoId);
+                });
+                ytBookmarksContainer.appendChild(chip);
+
+                // Render Edit List Item
+                const editItem = document.createElement('div');
+                editItem.className = 'flex justify-between items-center bg-slate-800/50 p-2 rounded border border-slate-700/50';
+                editItem.innerHTML = `
+                    <div class="flex items-center gap-2 truncate">
+                        ${bm.emoji ? `<span class="text-xs">${bm.emoji}</span>` : ''}
+                        <span class="text-[11px] text-slate-300 truncate">${bm.name}</span>
+                    </div>
+                    <button class="text-clinical-red hover:text-red-400 p-1" title="Eliminar"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                `;
+                editItem.querySelector('button').addEventListener('click', () => {
+                    ytBookmarks = ytBookmarks.filter(b => b.id !== bm.id);
+                    safeSet('cf_ytBookmarks', JSON.stringify(ytBookmarks));
+                    renderYtBookmarks();
+                });
+                ytBookmarksEditList.appendChild(editItem);
+            });
+        }
+
+        if (btnYtToggle && ytBookmarksManager) {
+            btnYtToggle.addEventListener('click', () => {
+                const isOpen = ytBookmarksManager.style.gridTemplateRows === '1fr';
+                ytBookmarksManager.style.gridTemplateRows = isOpen ? '0fr' : '1fr';
+                ytBookmarksManager.style.opacity = isOpen ? '0' : '1';
+                btnYtToggle.classList.toggle('text-white', !isOpen);
+                btnYtToggle.classList.toggle('text-slate-400', isOpen);
+                const icon = btnYtToggle.querySelector('i');
+                icon.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+                icon.style.transition = 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)';
+            });
+        }
+
+        if (formYtBookmark) {
+            formYtBookmark.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const emoji = document.getElementById('yt-bm-emoji').value.trim();
+                const name = document.getElementById('yt-bm-name').value.trim();
+                const url = document.getElementById('yt-bm-url').value.trim();
+                const color = document.getElementById('yt-bm-color').value;
+
+                const videoId = extractYouTubeId(url);
+                if (!videoId) {
+                    alert('Enlace de YouTube no válido.');
+                    return;
+                }
+
+                ytBookmarks.push({
+                    id: Date.now().toString(),
+                    name,
+                    emoji,
+                    color,
+                    videoId
+                });
+
+                safeSet('cf_ytBookmarks', JSON.stringify(ytBookmarks));
+                renderYtBookmarks();
+                
+                formYtBookmark.reset();
+                document.getElementById('yt-bm-color').value = '#0ea5e9';
+            });
+        }
+        
+        renderYtBookmarks();
 
         // --- CALENDAR INTEGRATION ---
         const calEls = {
