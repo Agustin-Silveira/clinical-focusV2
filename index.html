@@ -50,14 +50,23 @@
             min-height: 100vh;
             overflow-x: hidden;
         }
-        
+
+        :root {
+            --glass-panel-bg: rgba(15, 23, 42, 0.6);
+            --clinical-accent: #0ea5e9;
+        }
+
         .glass-panel {
-            background: rgba(15, 23, 42, 0.6);
+            background: var(--glass-panel-bg);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 1rem;
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .text-clinical-blue {
+            color: var(--clinical-accent, #0ea5e9);
         }
 
         .modal-glass {
@@ -650,6 +659,75 @@
                     
                     <div id="cfg-subjects-list" class="space-y-2 max-h-40 overflow-y-auto pr-2">
                         <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 3: PERSONALIZACIÓN VISUAL (ESTÉTICA Y APARIENCIA) -->
+            <div class="mt-8 pt-6 border-t border-slate-700">
+                <h3 class="text-sm font-medium text-slate-300 uppercase tracking-wide mb-4 text-clinical-blue flex items-center justify-between">
+                    <span><i class="fa-solid fa-palette mr-2"></i>Estética y Apariencia (Personalización Total)</span>
+                    <button type="button" id="btn-reset-appearance" class="text-[10px] text-slate-400 hover:text-white transition bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded border border-slate-700">
+                        <i class="fa-solid fa-rotate-left mr-1"></i> Restablecer Tema
+                    </button>
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Color de Fondo General -->
+                    <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between gap-3">
+                        <div>
+                            <p class="text-xs font-semibold text-white">Fondo General (Body)</p>
+                            <p class="text-[10px] text-slate-400">Color principal del entorno</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="cfg-bg-color-val" class="text-[10px] font-mono text-slate-300 uppercase">#0f172a</span>
+                            <input type="color" id="cfg-bg-color" value="#0f172a" class="w-8 h-8 rounded-full border-2 border-slate-600 cursor-pointer bg-transparent p-0 overflow-hidden shadow-md transition-transform hover:scale-110">
+                        </div>
+                    </div>
+
+                    <!-- Color de Tarjetas (Glass Panels) -->
+                    <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between gap-3">
+                        <div>
+                            <p class="text-xs font-semibold text-white">Tono de Módulos (Glass)</p>
+                            <p class="text-[10px] text-slate-400">Color translúcido de tarjetas</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="cfg-panel-color-val" class="text-[10px] font-mono text-slate-300 uppercase">#0f172a</span>
+                            <input type="color" id="cfg-panel-color" value="#0f172a" class="w-8 h-8 rounded-full border-2 border-slate-600 cursor-pointer bg-transparent p-0 overflow-hidden shadow-md transition-transform hover:scale-110">
+                        </div>
+                    </div>
+
+                    <!-- Color de Acentos y Encabezados -->
+                    <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between gap-3 md:col-span-2">
+                        <div>
+                            <p class="text-xs font-semibold text-white">Color de Títulos y Acentos</p>
+                            <p class="text-[10px] text-slate-400">Acento de iconos y textos destacados</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="cfg-accent-color-val" class="text-[10px] font-mono text-slate-300 uppercase">#0ea5e9</span>
+                            <input type="color" id="cfg-accent-color" value="#0ea5e9" class="w-8 h-8 rounded-full border-2 border-slate-600 cursor-pointer bg-transparent p-0 overflow-hidden shadow-md transition-transform hover:scale-110">
+                        </div>
+                    </div>
+
+                    <!-- Imagen de Fondo (Subir o URL) -->
+                    <div class="bg-slate-900/60 p-3.5 rounded-xl border border-slate-800 flex flex-col gap-3 md:col-span-2">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <p class="text-xs font-semibold text-white">Imagen de Fondo Personalizada</p>
+                                <p class="text-[10px] text-slate-400">Sube una foto de tu PC o pega un enlace URL</p>
+                            </div>
+                            <button type="button" id="btn-remove-bg-image" class="text-[10px] text-clinical-red hover:text-red-400 transition hidden">
+                                <i class="fa-solid fa-trash mr-1"></i> Quitar Fondo
+                            </button>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <input type="file" id="cfg-bg-file" accept="image/*" class="hidden">
+                            <button type="button" id="btn-trigger-bg-file" class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-2 rounded-lg text-xs font-medium border border-slate-700 transition flex items-center justify-center gap-1.5 shrink-0">
+                                <i class="fa-solid fa-upload text-clinical-blue"></i> Subir de mi PC
+                            </button>
+                            <input type="text" id="cfg-bg-url" placeholder="O pega el enlace URL (https://...)" class="w-full bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-clinical-blue">
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1943,6 +2021,163 @@
             renderSubjectsUI();
             els.configModal.classList.add('hidden');
         });
+
+        // --- SYSTEM PERSONALIZATION & CUSTOM AESTHETICS ---
+        function applyCustomAppearance() {
+            const customBgColor = safeGet('cf_customBgColor', '');
+            const customBgImage = safeGet('cf_customBgImage', '');
+            const customPanelColor = safeGet('cf_customPanelColor', '');
+            const customAccentColor = safeGet('cf_customAccentColor', '');
+
+            // 1. Background Color
+            if (customBgColor) {
+                document.body.style.backgroundColor = customBgColor;
+                const elBgVal = document.getElementById('cfg-bg-color-val');
+                const elBgPicker = document.getElementById('cfg-bg-color');
+                if (elBgVal) elBgVal.textContent = customBgColor;
+                if (elBgPicker) elBgPicker.value = customBgColor;
+            }
+
+            // 2. Background Image
+            const removeBtn = document.getElementById('btn-remove-bg-image');
+            if (customBgImage) {
+                document.body.style.backgroundImage = `url("${customBgImage}")`;
+                document.body.style.backgroundSize = 'cover';
+                document.body.style.backgroundPosition = 'center';
+                document.body.style.backgroundAttachment = 'fixed';
+                if (removeBtn) removeBtn.classList.remove('hidden');
+            } else {
+                document.body.style.backgroundImage = `
+                    linear-gradient(rgba(14, 165, 233, 0.05) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(14, 165, 233, 0.05) 1px, transparent 1px),
+                    linear-gradient(rgba(14, 165, 233, 0.02) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(14, 165, 233, 0.02) 1px, transparent 1px)
+                `;
+                document.body.style.backgroundSize = '100px 100px, 100px 100px, 20px 20px, 20px 20px';
+                document.body.style.backgroundPosition = '-1px -1px, -1px -1px, -1px -1px, -1px -1px';
+                if (removeBtn) removeBtn.classList.add('hidden');
+            }
+
+            // 3. Panel Glass Tint
+            if (customPanelColor) {
+                const hexToRgb = hex => {
+                    if (!hex) return '15, 23, 42';
+                    hex = hex.replace('#', '');
+                    if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+                    const r = parseInt(hex.slice(0, 2), 16);
+                    const g = parseInt(hex.slice(2, 4), 16);
+                    const b = parseInt(hex.slice(4, 6), 16);
+                    return `${r}, ${g}, ${b}`;
+                };
+                document.documentElement.style.setProperty('--glass-panel-bg', `rgba(${hexToRgb(customPanelColor)}, 0.65)`);
+                const elPanelVal = document.getElementById('cfg-panel-color-val');
+                const elPanelPicker = document.getElementById('cfg-panel-color');
+                if (elPanelVal) elPanelVal.textContent = customPanelColor;
+                if (elPanelPicker) elPanelPicker.value = customPanelColor;
+            }
+
+            // 4. Accent Color
+            if (customAccentColor) {
+                document.documentElement.style.setProperty('--clinical-accent', customAccentColor);
+                const elAccentVal = document.getElementById('cfg-accent-color-val');
+                const elAccentPicker = document.getElementById('cfg-accent-color');
+                if (elAccentVal) elAccentVal.textContent = customAccentColor;
+                if (elAccentPicker) elAccentPicker.value = customAccentColor;
+            }
+        }
+
+        // Apply immediately
+        applyCustomAppearance();
+
+        // Appearance Event Listeners
+        const bgPicker = document.getElementById('cfg-bg-color');
+        const panelPicker = document.getElementById('cfg-panel-color');
+        const accentPicker = document.getElementById('cfg-accent-color');
+        const bgFileInput = document.getElementById('cfg-bg-file');
+        const bgFileBtn = document.getElementById('btn-trigger-bg-file');
+        const bgUrlInput = document.getElementById('cfg-bg-url');
+        const removeBgBtn = document.getElementById('btn-remove-bg-image');
+        const resetThemeBtn = document.getElementById('btn-reset-appearance');
+
+        if (bgPicker) {
+            bgPicker.addEventListener('input', (e) => {
+                const color = e.target.value;
+                document.body.style.backgroundColor = color;
+                document.getElementById('cfg-bg-color-val').textContent = color;
+                safeSet('cf_customBgColor', color);
+            });
+        }
+
+        if (panelPicker) {
+            panelPicker.addEventListener('input', (e) => {
+                const color = e.target.value;
+                const hexToRgb = hex => {
+                    hex = hex.replace('#', '');
+                    if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+                    return `${parseInt(hex.slice(0,2), 16)}, ${parseInt(hex.slice(2,4), 16)}, ${parseInt(hex.slice(4,6), 16)}`;
+                };
+                document.documentElement.style.setProperty('--glass-panel-bg', `rgba(${hexToRgb(color)}, 0.65)`);
+                document.getElementById('cfg-panel-color-val').textContent = color;
+                safeSet('cf_customPanelColor', color);
+            });
+        }
+
+        if (accentPicker) {
+            accentPicker.addEventListener('input', (e) => {
+                const color = e.target.value;
+                document.documentElement.style.setProperty('--clinical-accent', color);
+                document.getElementById('cfg-accent-color-val').textContent = color;
+                safeSet('cf_customAccentColor', color);
+            });
+        }
+
+        if (bgFileBtn && bgFileInput) {
+            bgFileBtn.addEventListener('click', () => bgFileInput.click());
+            bgFileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        const dataUrl = ev.target.result;
+                        safeSet('cf_customBgImage', dataUrl);
+                        applyCustomAppearance();
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+
+        if (bgUrlInput) {
+            bgUrlInput.addEventListener('change', (e) => {
+                const url = e.target.value.trim();
+                if (url) {
+                    safeSet('cf_customBgImage', url);
+                    applyCustomAppearance();
+                }
+            });
+        }
+
+        if (removeBgBtn) {
+            removeBgBtn.addEventListener('click', () => {
+                safeSet('cf_customBgImage', '');
+                if (bgUrlInput) bgUrlInput.value = '';
+                applyCustomAppearance();
+            });
+        }
+
+        if (resetThemeBtn) {
+            resetThemeBtn.addEventListener('click', () => {
+                safeSet('cf_customBgColor', '');
+                safeSet('cf_customBgImage', '');
+                safeSet('cf_customPanelColor', '');
+                safeSet('cf_customAccentColor', '');
+                document.body.style.backgroundColor = '#0f172a';
+                document.documentElement.style.setProperty('--glass-panel-bg', 'rgba(15, 23, 42, 0.6)');
+                document.documentElement.style.setProperty('--clinical-accent', '#0ea5e9');
+                if (bgUrlInput) bgUrlInput.value = '';
+                applyCustomAppearance();
+            });
+        }
 
         // --- HOLIDAYS LOGIC (Argentina) ---
         const holidays = [
