@@ -225,7 +225,7 @@
             <div id="pomodoro-placeholder" class="flex flex-col relative h-fit shrink-0">
                 <div id="pomodoro-panel" class="glass-panel p-6 flex flex-col items-center justify-center transition-all duration-500 ease-in-out origin-bottom-left">
                     
-                    <div class="relative w-56 h-56 flex justify-center items-center my-4">
+                    <div id="clock-container" class="relative w-56 h-56 flex justify-center items-center my-4 transition-all">
                         <svg class="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                             <circle cx="50" cy="50" r="45" fill="none" stroke="#1e293b" stroke-width="4"></circle>
                             <circle id="timer-progress" cx="50" cy="50" r="45" fill="none" stroke="#0ea5e9" stroke-width="4" 
@@ -781,10 +781,10 @@
                 </div>
             </div>
 
-            <!-- SECTION 4: EFECTOS Y ALERTAS SONORAS -->
+            <!-- SECTION 4: EFECTOS Y ALERTAS SONORAS (REPERTORIO AMPLIADO) -->
             <div class="mt-8 pt-6 border-t border-slate-700">
                 <h3 class="text-sm font-medium text-slate-300 uppercase tracking-wide mb-4 text-clinical-blue flex items-center gap-2">
-                    <i class="fa-solid fa-volume-high"></i>Efectos y Alertas Sonoras
+                    <i class="fa-solid fa-volume-high"></i>Repertorio de Alertas Sonoras (Web Audio API)
                 </h3>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -800,7 +800,11 @@
                             <option value="claro">🔔 Campanilla Clara (Suave)</option>
                             <option value="hospital">🏥 Monitor Vital (Clínico EKG)</option>
                             <option value="digital">👾 Alarma Digital (Retro 8-bit)</option>
-                            <option value="zen">🧘 Cuenco Armónico (Zen 432Hz)</option>
+                            <option value="zen">🧘 Cuenco Tibétano (Zen 432Hz)</option>
+                            <option value="radio">📻 Radio Guardia Lo-Fi (Cálido)</option>
+                            <option value="siren">🚨 Sirena Médica (Pulso Suave)</option>
+                            <option value="marimba">🎵 Marimba Sinfónica (Cristal)</option>
+                            <option value="cosmic">🌌 Pulso Cósmico Ambient (Sub-Bass)</option>
                         </select>
                     </div>
 
@@ -817,6 +821,10 @@
                             <option value="bubble">🫧 Burbuja Soft (Pop)</option>
                             <option value="ding">🛎️ Campanita Cristal</option>
                             <option value="pulse">⚡ Pulso Cibernético</option>
+                            <option value="radar">📲 Radar de Guardia (Chirp)</option>
+                            <option value="hydro">💧 Gota de Agua (Hydro-Drop)</option>
+                            <option value="arcade">🎮 Arcade Blip (Retro Click)</option>
+                            <option value="jazz">🎹 Tecla Piano Jazz (Soft Chord)</option>
                         </select>
                     </div>
                 </div>
@@ -958,6 +966,63 @@
                 gain.connect(audioCtx.destination);
                 osc.start(t);
                 osc.stop(t + 3.0);
+            } else if (sound === 'radio') {
+                // Radio Lo-Fi (Warm Triangle Chord)
+                [174.61, 220.00, 261.63, 349.23].forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, t + (idx * 0.12));
+                    gain.gain.setValueAtTime(0, t + (idx * 0.12));
+                    gain.gain.linearRampToValueAtTime(0.25, t + (idx * 0.12) + 0.05);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + (idx * 0.12) + 1.2);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(t + (idx * 0.12));
+                    osc.stop(t + (idx * 0.12) + 1.4);
+                });
+            } else if (sound === 'siren') {
+                // Sirena Médica Soft
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, t);
+                osc.frequency.linearRampToValueAtTime(1100, t + 0.25);
+                osc.frequency.linearRampToValueAtTime(600, t + 0.5);
+                gain.gain.setValueAtTime(0.35, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(t);
+                osc.stop(t + 0.55);
+            } else if (sound === 'marimba') {
+                // Marimba Sinfónica (Crystal Arpeggio)
+                [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, t + (idx * 0.07));
+                    gain.gain.setValueAtTime(0.3, t + (idx * 0.07));
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + (idx * 0.07) + 0.4);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(t + (idx * 0.07));
+                    osc.stop(t + (idx * 0.07) + 0.4);
+                });
+            } else if (sound === 'cosmic') {
+                // Pulso Cósmico Ambient
+                const osc = audioCtx.createOscillator();
+                const osc2 = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine'; osc.frequency.setValueAtTime(108, t);
+                osc2.type = 'sine'; osc2.frequency.setValueAtTime(432, t);
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(0.4, t + 0.1);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 2.5);
+                osc.connect(gain); osc2.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(t); osc2.start(t);
+                osc.stop(t + 2.5); osc2.stop(t + 2.5);
             } else {
                 // 'claro' - Soft Melodic Chime (C5 -> E5 -> G5)
                 const playBell = (freq, startTime) => {
@@ -1023,6 +1088,59 @@
                     gain.connect(audioCtx.destination);
                     osc.start(t + (idx * 0.05));
                     osc.stop(t + (idx * 0.05) + 0.06);
+                });
+            } else if (sound === 'radar') {
+                // Radar Chirp Sweep
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1800, t);
+                osc.frequency.exponentialRampToValueAtTime(2400, t + 0.08);
+                gain.gain.setValueAtTime(0.3, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(t);
+                osc.stop(t + 0.1);
+            } else if (sound === 'hydro') {
+                // Hydro Water Drop
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, t);
+                osc.frequency.exponentialRampToValueAtTime(1200, t + 0.06);
+                gain.gain.setValueAtTime(0.35, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(t);
+                osc.stop(t + 0.14);
+            } else if (sound === 'arcade') {
+                // Arcade 8-bit Blip
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(1200, t);
+                osc.frequency.setValueAtTime(1600, t + 0.03);
+                gain.gain.setValueAtTime(0.12, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(t);
+                osc.stop(t + 0.08);
+            } else if (sound === 'jazz') {
+                // Jazz Piano Major 7th Chord
+                [261.63, 329.63, 392.00, 493.88].forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, t + (idx * 0.03));
+                    gain.gain.setValueAtTime(0.2, t + (idx * 0.03));
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + (idx * 0.03) + 0.6);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(t + (idx * 0.03));
+                    osc.stop(t + (idx * 0.03) + 0.6);
                 });
             } else {
                 // 'pager' - Classic Dual Pager Beep
@@ -1374,7 +1492,8 @@
         }
 
         function updateTimerUI() {
-            els.timerDisplay.textContent = formatTime(state.timer.timeLeft);
+            const timeStr = formatTime(state.timer.timeLeft);
+            els.timerDisplay.textContent = timeStr;
             
             const defaultMins = state.config.times[state.timer.mode === 'short-break' ? 'shortBreak' : (state.timer.mode === 'long-break' ? 'longBreak' : 'study')];
             const total = state.timer.totalTime || (defaultMins * 60);
@@ -1392,7 +1511,7 @@
 
             updatePiPCanvas();
             
-            document.title = `${formatTime(state.timer.timeLeft)} - ClinicalFocus`;
+            document.title = `${timeStr} - ClinicalFocus`;
             if (typeof syncPopup === 'function') syncPopup();
         }
 
