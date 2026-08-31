@@ -171,7 +171,7 @@
     <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         <!-- MODULE 1: POMODORO CLÍNICO & GAMIFICATION -->
-        <section class="lg:col-span-4 flex flex-col gap-6 h-full">
+        <section id="col-1" class="wgt-column lg:col-span-4 flex flex-col gap-6 h-full min-h-[500px]">
             
             <!-- GAMIFICATION: PATIENT WARD -->
             <div class="glass-panel p-6 relative overflow-hidden flex flex-col animate-breathing shrink-0" id="patient-ward">
@@ -369,7 +369,7 @@
         </section>
 
         <!-- COLUMN 2: EVOLUCIONES & AGENDA -->
-        <div class="lg:col-span-4 flex flex-col gap-6 h-full">
+        <div id="col-2" class="wgt-column lg:col-span-4 flex flex-col gap-6 h-full min-h-[500px]">
             <!-- MODULE 2: EVOLUCIONES (TO-DO) (55% ALTURA) -->
             <section class="glass-panel p-6 flex flex-col min-h-0" style="flex: 55 55 0%;">
                 <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
@@ -422,7 +422,7 @@
         </div>
 
         <!-- COLUMN 3: MULTIMEDIA & ANALÍTICAS -->
-        <div class="lg:col-span-4 flex flex-col gap-6">
+        <div id="col-3" class="wgt-column lg:col-span-4 flex flex-col gap-6 min-h-[500px]">
             
             <!-- MODULE 4: YOUTUBE LOFI MONITOR -->
             <!-- MODULE 4: YOUTUBE LOFI MONITOR -->
@@ -4033,153 +4033,174 @@
     return wrap;
   }
 
-  // ─── Column Drag-and-Drop ─────────────────────────────────────
-  function initColumnDragDrop(column) {
-    const widgets = () => Array.from(column.querySelectorAll(':scope > .wgt-wrap'));
+  // ─── Inter-Column Drag-and-Drop ──────────────────────────────
+  function initInterColumnDragDrop() {
+    const columns = Array.from(document.querySelectorAll('.wgt-column'));
 
-    column.addEventListener('pointerdown', (startEvent) => {
-      const header = startEvent.target.closest('.wgt-header');
-      if (!header) return;
+    columns.forEach(column => {
+      column.addEventListener('pointerdown', (startEvent) => {
+        const header = startEvent.target.closest('.wgt-header');
+        if (!header) return;
+        
+        // Don't start drag from collapse button
+        if (startEvent.target.closest('.wgt-btn-collapse')) return;
 
-      // Don't start drag from collapse button
-      if (startEvent.target.closest('.wgt-btn-collapse')) return;
+        const dragEl = header.closest('.wgt-wrap');
+        if (!dragEl) return;
 
-      const dragEl = header.closest('.wgt-wrap');
-      if (!dragEl) return;
+        startEvent.preventDefault();
+        dragEl.setPointerCapture(startEvent.pointerId);
 
-      startEvent.preventDefault();
-      dragEl.setPointerCapture(startEvent.pointerId);
+        const startX = startEvent.clientX;
+        const startY = startEvent.clientY;
+        let isDragging = false;
+        let placeholder = null;
+        let raf = null;
+        
+        let lastX = startX;
+        let lastY = startY;
 
-      const startY = startEvent.clientY;
-      let isDragging = false;
-      let placeholder = null;
-      let raf = null;
-      let lastY = startY;
+        // Create ghost placeholder
+        function createPlaceholder() {
+          placeholder = document.createElement('div');
+          placeholder.className = 'wgt-placeholder';
+          placeholder.style.height = `${dragEl.offsetHeight}px`;
+          placeholder.style.minHeight = `${dragEl.offsetHeight}px`;
+          dragEl.parentNode.insertBefore(placeholder, dragEl.nextSibling);
 
-      const originalRect = dragEl.getBoundingClientRect();
-      let translateY = 0;
-
-      const siblings = widgets();
-      const dragIdx = siblings.indexOf(dragEl);
-
-      // Create ghost placeholder
-      function createPlaceholder() {
-        placeholder = document.createElement('div');
-        placeholder.className = 'wgt-placeholder';
-        placeholder.style.height = `${dragEl.offsetHeight}px`;
-        placeholder.style.minHeight = `${dragEl.offsetHeight}px`;
-        dragEl.parentNode.insertBefore(placeholder, dragEl.nextSibling);
-
-        dragEl.style.position = 'relative';
-        dragEl.style.zIndex = '9999';
-        dragEl.classList.add('wgt-dragging');
-      }
-
-      function removePlaceholder() {
-        if (placeholder && placeholder.parentNode) {
-          placeholder.parentNode.removeChild(placeholder);
-          placeholder = null;
-        }
-      }
-
-      function getInsertionIndex(clientY) {
-        const current = widgets().filter(w => w !== dragEl && !w.classList.contains('wgt-placeholder'));
-        for (let i = 0; i < current.length; i++) {
-          const r = current[i].getBoundingClientRect();
-          const mid = r.top + r.height / 2;
-          if (clientY < mid) return i;
-        }
-        return current.length;
-      }
-
-      function onMove(e) {
-        lastY = e.clientY;
-        const dy = lastY - startY;
-
-        if (!isDragging && Math.abs(dy) > 6) {
-          isDragging = true;
-          createPlaceholder();
+          dragEl.style.position = 'relative';
+          dragEl.style.zIndex = '9999';
+          dragEl.classList.add('wgt-dragging');
         }
 
-        if (!isDragging) return;
-
-        if (raf) cancelAnimationFrame(raf);
-        raf = requestAnimationFrame(() => {
-          translateY = dy;
-          dragEl.style.transform = `translate3d(0, ${translateY}px, 0) scale(0.97)`;
-
-          // Determine new position for placeholder
-          const insertIdx = getInsertionIndex(lastY);
-          const current = widgets().filter(w => w !== dragEl);
-          const before = insertIdx < current.length ? current[insertIdx] : null;
-
-          if (before && before !== placeholder) {
-            column.insertBefore(placeholder, before);
-          } else if (!before) {
-            column.appendChild(placeholder);
+        function removePlaceholder() {
+          if (placeholder && placeholder.parentNode) {
+            placeholder.parentNode.removeChild(placeholder);
+            placeholder = null;
           }
-        });
-      }
-
-      function onUp() {
-        dragEl.removeEventListener('pointermove', onMove);
-        dragEl.removeEventListener('pointerup', onUp);
-        dragEl.removeEventListener('pointercancel', onUp);
-
-        if (raf) cancelAnimationFrame(raf);
-
-        if (!isDragging) {
-          return;
+        }
+        
+        function getHoveredColumn(clientX, clientY) {
+            for (const col of columns) {
+                const rect = col.getBoundingClientRect();
+                // Add a little padding to the rect to make it easier to drop
+                if (clientX >= rect.left - 20 && clientX <= rect.right + 20 &&
+                    clientY >= rect.top - 20 && clientY <= rect.bottom + 20) {
+                    return col;
+                }
+            }
+            return placeholder ? placeholder.closest('.wgt-column') : dragEl.closest('.wgt-column');
         }
 
-        // Snap to placeholder position
-        const snapTarget = placeholder;
-        dragEl.style.transform = '';
-        dragEl.style.position = '';
-        dragEl.style.zIndex = '';
-        dragEl.classList.remove('wgt-dragging');
-
-        if (snapTarget && snapTarget.parentNode) {
-          snapTarget.parentNode.insertBefore(dragEl, snapTarget);
-          removePlaceholder();
-        } else {
-          removePlaceholder();
+        function getInsertionIndex(targetCol, clientY) {
+          const current = Array.from(targetCol.querySelectorAll(':scope > .wgt-wrap')).filter(w => w !== dragEl && !w.classList.contains('wgt-placeholder'));
+          for (let i = 0; i < current.length; i++) {
+            const r = current[i].getBoundingClientRect();
+            const mid = r.top + r.height / 2;
+            if (clientY < mid) return i;
+          }
+          return current.length;
         }
 
-        // Save new order
-        const newOrder = widgets().map(w => w.dataset.wgtId);
-        state.__order = state.__order || {};
-        const colId = column.dataset.wgtCol || column.className;
-        state.__order[colId] = newOrder;
-        saveState();
+        function onMove(e) {
+          lastX = e.clientX;
+          lastY = e.clientY;
+          const dy = lastY - startY;
+          const dx = lastX - startX;
 
-        // Animate snap
-        dragEl.style.transition = 'transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-        requestAnimationFrame(() => {
-          dragEl.style.transform = 'scale(1)';
-          setTimeout(() => { dragEl.style.transition = ''; }, 400);
-        });
-      }
+          if (!isDragging && (Math.abs(dy) > 6 || Math.abs(dx) > 6)) {
+            isDragging = true;
+            createPlaceholder();
+          }
 
-      dragEl.addEventListener('pointermove', onMove);
-      dragEl.addEventListener('pointerup', onUp);
-      dragEl.addEventListener('pointercancel', onUp);
+          if (!isDragging) return;
+
+          if (raf) cancelAnimationFrame(raf);
+          raf = requestAnimationFrame(() => {
+            dragEl.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(0.97)`;
+
+            const targetCol = getHoveredColumn(lastX, lastY);
+            if (!targetCol) return;
+
+            const insertIdx = getInsertionIndex(targetCol, lastY);
+            const current = Array.from(targetCol.querySelectorAll(':scope > .wgt-wrap')).filter(w => w !== dragEl && !w.classList.contains('wgt-placeholder'));
+            const before = insertIdx < current.length ? current[insertIdx] : null;
+
+            if (before && before !== placeholder) {
+              targetCol.insertBefore(placeholder, before);
+            } else if (!before && targetCol.lastElementChild !== placeholder) {
+              targetCol.appendChild(placeholder);
+            }
+          });
+        }
+
+        function onUp() {
+          dragEl.removeEventListener('pointermove', onMove);
+          dragEl.removeEventListener('pointerup', onUp);
+          dragEl.removeEventListener('pointercancel', onUp);
+
+          if (raf) cancelAnimationFrame(raf);
+
+          if (!isDragging) return;
+
+          const snapTarget = placeholder;
+          dragEl.style.transform = '';
+          dragEl.style.position = '';
+          dragEl.style.zIndex = '';
+          dragEl.classList.remove('wgt-dragging');
+
+          if (snapTarget && snapTarget.parentNode) {
+            snapTarget.parentNode.insertBefore(dragEl, snapTarget);
+            removePlaceholder();
+          } else {
+            removePlaceholder();
+          }
+
+          saveDashboardLayout();
+
+          dragEl.style.transition = 'transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+          requestAnimationFrame(() => {
+            dragEl.style.transform = 'scale(1)';
+            setTimeout(() => { dragEl.style.transition = ''; }, 400);
+          });
+        }
+
+        dragEl.addEventListener('pointermove', onMove);
+        dragEl.addEventListener('pointerup', onUp);
+        dragEl.addEventListener('pointercancel', onUp);
+      });
     });
   }
 
-  // ─── Restore Column Order ─────────────────────────────────────
-  function restoreColumnOrder(column) {
-    const colId = column.dataset.wgtCol || column.className;
-    const savedOrder = state.__order?.[colId];
-    if (!savedOrder || !Array.isArray(savedOrder)) return;
+  // ─── Dashboard Layout Persistence ──────────────────────────────
+  function saveDashboardLayout() {
+    const layout = {};
+    const columns = document.querySelectorAll('.wgt-column');
+    columns.forEach(col => {
+      const colId = col.id;
+      const widgets = Array.from(col.querySelectorAll(':scope > .wgt-wrap')).map(w => w.dataset.wgtId);
+      layout[colId] = widgets;
+    });
+    localStorage.setItem('cf_dashboardLayout', JSON.stringify(layout));
+  }
 
-    const current = Array.from(column.querySelectorAll(':scope > .wgt-wrap'));
-    const map = {};
-    current.forEach(w => map[w.dataset.wgtId] = w);
-
-    for (const id of savedOrder) {
-      if (map[id]) column.appendChild(map[id]);
-    }
+  function loadDashboardLayout() {
+    try {
+      const layout = JSON.parse(localStorage.getItem('cf_dashboardLayout'));
+      if (!layout) return;
+      
+      for (const [colId, widgetIds] of Object.entries(layout)) {
+        const targetCol = document.getElementById(colId);
+        if (!targetCol) continue;
+        
+        for (const wgtId of widgetIds) {
+          const wgt = document.querySelector(`.wgt-wrap[data-wgt-id="${wgtId}"]`);
+          if (wgt) {
+            targetCol.appendChild(wgt);
+          }
+        }
+      }
+    } catch(e) { console.warn('Layout restore failed', e); }
   }
 
   // ─── Meet widget (no glass-panel, just section) ───────────────
@@ -4201,21 +4222,14 @@
 
   // ─── Init ─────────────────────────────────────────────────────
   function init() {
-    // Label columns for persistence
-    const cols = document.querySelectorAll('main > section, main > div');
-    cols.forEach((col, i) => {
-      col.dataset.wgtCol = `col-${i}`;
-    });
-
-    // Instrument all widgets
+    // Instrument all widgets (wraps them in the drag handles and collapsible containers)
     WIDGET_DEFS.forEach(def => instrumentWidget(def));
 
-    // Init drag on each column
-    const allCols = document.querySelectorAll('main > section, main > div');
-    allCols.forEach(col => {
-      restoreColumnOrder(col);
-      initColumnDragDrop(col);
-    });
+    // Load and physically reposition DOM nodes based on saved layout
+    loadDashboardLayout();
+
+    // Initialize the advanced inter-column drag & drop listener
+    initInterColumnDragDrop();
   }
 
   // Wait for DOM to be fully ready
