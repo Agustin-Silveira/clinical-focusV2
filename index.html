@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClinicalFocus</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🩺</text></svg>">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PeerJS for WebRTC -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: { 850: '#141e30', 900: '#0f172a', 950: '#020617' },
+                        clinical: { blue: '#0ea5e9', red: '#ef4444', orange: '#f97316', yellow: '#eab308', green: '#10b981' }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="p-4 md:p-8 font-sans" id="app-body">
+    
+    <header class="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div>
+            <h1 class="text-3xl font-semibold text-clinical-blue tracking-tight"><i class="fa-solid fa-staff-snake mr-2"></i>ClinicalFocus 3.0</h1>
+            <p class="text-sm text-slate-400 mt-1 uppercase tracking-widest text-xs">Unidad de Cuidados Intensivos del Estudio</p>
+        </div>
+        <div class="flex gap-4 items-center">
+            <button id="btn-config" class="text-slate-400 hover:text-white bg-slate-800/50 p-2 rounded-lg border border-slate-700/50 transition">
+                <i class="fa-solid fa-gear"></i> Configuración
+            </button>
+            <div class="text-right font-mono hidden md:block">
+                <div id="current-time" class="text-xl text-slate-300">00:00:00</div>
+                <div id="current-date" class="text-xs text-slate-500">YYYY-MM-DD</div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- MODULE 1: POMODORO CLÍNICO & GAMIFICATION -->
+        <section class="lg:col-span-4 flex flex-col gap-6">
+            
+            <!-- GAMIFICATION: PATIENT WARD -->
+            <div class="glass-panel p-6 relative overflow-hidden flex flex-col" id="patient-ward">
+                <h2 class="text-sm font-medium text-slate-300 mb-4 uppercase tracking-wide border-b border-slate-700 pb-2">
+                    <i class="fa-solid fa-bed-pulse mr-2 text-clinical-blue"></i>Sala de Urgencias (Retro)
+                </h2>
+                
+                <div id="game-setup" class="mb-4">
+                    <p class="text-xs text-slate-400 mb-3">Define tu Turno de Guardia para admitir a un paciente.</p>
+                    <div class="flex gap-2">
+                        <input type="number" id="target-pomodoros" min="1" max="12" value="4" class="w-16 bg-slate-800 border border-slate-700 rounded p-1 text-center text-sm focus:outline-none focus:border-clinical-blue">
+                        <span class="text-sm text-slate-300 self-center">Pomodoros a completar</span>
+                    </div>
+                    <button id="btn-admit-patient" class="mt-3 w-full bg-clinical-blue/20 text-clinical-blue border border-clinical-blue/50 hover:bg-clinical-blue hover:text-white py-2 rounded text-sm transition font-semibold">
+                        Ingresar Paciente
+                    </button>
+                </div>
+
+                <div id="patient-card" class="hidden flex-col gap-3 relative z-10">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="text-sm font-bold text-white"><i class="fa-solid fa-user-injured mr-2"></i>Paciente #<span id="patient-id">402</span></div>
+                            <div id="patient-diagnosis" class="text-[10px] text-clinical-red font-mono mt-1">ESTADO CRÍTICO</div>
+                        </div>
+                        <div class="flex flex-col items-end">
+                            <div class="text-lg font-mono font-bold" id="patient-hp-text">20%</div>
+                            <button id="btn-kill-patient" class="text-[9px] uppercase tracking-widest text-slate-500 hover:text-clinical-red transition mt-1" title="Cancelar guardia">
+                                <i class="fa-solid fa-skull"></i> Matar Paciente
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- CANVAS RENDERER (32-BIT VECTOR ENGINE) -->
+                    <div class="w-full bg-[#020617] rounded overflow-hidden border border-slate-700 flex items-center justify-center shadow-inner relative mt-1 mb-1">
+                        <canvas id="hospital-canvas" width="600" height="250" class="w-full h-auto max-h-[220px]"></canvas>
+                    </div>
+
+                    <div class="w-full bg-slate-800 rounded-full h-2 border border-slate-700">
+                        <div id="patient-hp-bar" class="bg-clinical-red h-full rounded-full health-bar-fill" style="width: 20%"></div>
+                    </div>
+                    <div class="text-[10px] text-slate-400 text-center uppercase tracking-widest" id="patient-progress-text">0 / 4 Ciclos</div>
+                </div>
+            </div>
+
+            <!-- POMODORO TIMER PLACEHOLDER -->
+            <div id="pomodoro-placeholder" class="flex flex-col flex-grow relative">
+                <div id="pomodoro-panel" class="glass-panel p-6 flex flex-col items-center flex-grow transition-all duration-500 ease-in-out origin-bottom-left">
+                    
+                    <div class="relative w-56 h-56 flex justify-center items-center my-4">
+                        <svg class="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" fill="none" stroke="#1e293b" stroke-width="4"></circle>
+                            <circle id="timer-progress" cx="50" cy="50" r="45" fill="none" stroke="#0ea5e9" stroke-width="4" 
+                                    stroke-dasharray="283" stroke-dashoffset="0" class="timer-ring stroke-current"></circle>
+                        </svg>
+
+                        <div class="relative z-10 flex flex-col items-center">
+                            <div id="timer-display" class="text-4xl font-mono font-bold text-white tracking-wider">00:00</div>
+                            <div id="timer-mode-label" class="text-[10px] uppercase tracking-widest text-clinical-blue mt-1 font-semibold">Ronda de Guardia</div>
+                            <button id="btn-pip" class="mt-3 text-[10px] text-slate-400 hover:text-white transition bg-slate-800/80 px-2.5 py-1.5 rounded border border-slate-700" title="Reloj Flotante (Mini-reloj)"><i class="fa-regular fa-window-restore mr-1" id="icon-pip"></i>Mini-reloj</button>
+                        </div>
+                    </div>
+
+                <div class="flex gap-3 mb-6">
+                    <button id="btn-start" class="w-12 h-12 rounded-full bg-clinical-blue text-white flex items-center justify-center hover:bg-blue-500 transition shadow-lg focus:outline-none">
+                        <i class="fa-solid fa-play"></i>
+                    </button>
+                    <button id="btn-pause" class="w-10 h-10 rounded-full bg-slate-700 text-white flex items-center justify-center hover:bg-slate-600 transition shadow-lg focus:outline-none self-center">
+                        <i class="fa-solid fa-pause"></i>
+                    </button>
+                    <button id="btn-skip" class="w-10 h-10 rounded-full bg-slate-700 text-white flex items-center justify-center hover:bg-slate-600 transition shadow-lg focus:outline-none self-center">
+                        <i class="fa-solid fa-forward-step"></i>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 w-full mb-6">
+                    <button id="mode-study" class="mode-btn text-xs py-2 px-1 rounded transition border text-clinical-blue bg-clinical-blue/10 border-clinical-blue/30">Guardia</button>
+                    <button id="mode-short-break" class="mode-btn text-xs py-2 px-1 rounded transition border text-slate-400 bg-slate-800 border-transparent hover:bg-slate-700">Descanso</button>
+                    <button id="mode-long-break" class="mode-btn text-xs py-2 px-1 rounded transition border text-slate-400 bg-slate-800 border-transparent hover:bg-slate-700">Pausa Larga</button>
+                </div>
+
+                <!-- Subject Selector -->
+                <div class="w-full">
+                    <div class="text-[10px] text-slate-400 uppercase mb-2 flex justify-between">
+                        <span>Materia Activa</span>
+                        <span id="active-subject-name" class="text-clinical-blue font-semibold">Ninguna</span>
+                    </div>
+                    <div class="flex flex-wrap gap-2" id="timer-subject-selector">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+                </div>
+            </div>
+
+            <!-- MODULE: SPOTIFY AUDIO TERAPIA -->
+            <div class="glass-panel p-6 flex flex-col" id="spotify-module">
+                <h2 class="text-sm font-medium text-slate-300 mb-4 uppercase tracking-wide border-b border-slate-700 pb-2">
+                    <i class="fa-brands fa-spotify mr-2 text-[#1DB954]"></i>Audio Terapia
+                </h2>
+                
+                <div id="spotify-setup" class="flex flex-col gap-2 mb-2 items-center text-center">
+                    <p class="text-[10px] text-slate-400">Conecta tu cuenta para acceder a tus playlists directamente.</p>
+                    <button id="btn-connect-spotify" class="w-full bg-[#1DB954]/20 text-[#1DB954] border border-[#1DB954]/50 hover:bg-[#1DB954] hover:text-black py-2 rounded text-sm transition font-semibold">
+                        <i class="fa-brands fa-spotify mr-2"></i>Conectar Spotify
+                    </button>
+                </div>
+
+                <div id="spotify-playlist-selector" class="hidden flex-col gap-2 mb-2">
+                    <select id="spotify-select" class="w-full bg-slate-800/50 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-[#1DB954]">
+                        <option value="" disabled selected>Selecciona una Playlist...</option>
+                    </select>
+                </div>
+
+                <div id="spotify-view" class="hidden relative w-full rounded overflow-hidden mt-2">
+                    <iframe id="spotify-iframe" src="" width="100%" height="152" frameborder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+                    <button id="btn-edit-spotify" class="absolute top-2 right-2 bg-slate-900/80 hover:bg-slate-700 text-white w-6 h-6 rounded flex items-center justify-center transition border border-slate-600 shadow-md backdrop-blur" title="Cambiar Playlist"><i class="fa-solid fa-list text-[10px]"></i></button>
+                </div>
+            </div>
+        </section>
+
+        <!-- COLUMN 2: EVOLUCIONES & AGENDA -->
+        <div class="lg:col-span-4 flex flex-col gap-6 h-full">
+            <!-- MODULE 2: EVOLUCIONES (TO-DO) -->
+            <section class="glass-panel p-6 flex flex-col min-h-[500px] flex-grow">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                    <h2 class="text-sm font-medium text-slate-300 uppercase tracking-wide"><i class="fa-solid fa-clipboard-user mr-2 text-clinical-blue"></i>Evoluciones (To-Do)</h2>
+                    <button id="btn-clear-tasks" class="text-xs text-clinical-red hover:text-red-400 transition" title="Eliminar todas las tareas"><i class="fa-solid fa-trash-can"></i> Limpiar</button>
+                </div>
+                
+                <div class="flex-grow overflow-y-auto mb-4 pr-2" id="task-list">
+                    <!-- Tasks injected here -->
+                </div>
+
+                <form id="task-form" class="mt-auto flex flex-col gap-2">
+                    <div class="flex gap-2">
+                        <input type="text" id="task-input" placeholder="Ej: Leer Farmacodependencias..." 
+                               class="w-full bg-slate-800/50 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-clinical-blue">
+                        <button type="submit" class="bg-clinical-blue/20 text-clinical-blue border border-clinical-blue/30 hover:bg-clinical-blue hover:text-white px-3 py-2 rounded transition">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
+                    <label class="flex items-center gap-2 text-[10px] text-slate-400 cursor-pointer w-max">
+                        <input type="checkbox" id="task-pages-check" class="rounded border-slate-700 bg-slate-800 text-clinical-blue focus:ring-clinical-blue">
+                        ¿Usar contador de páginas en esta tarea?
+                    </label>
+                </form>
+            </section>
+
+            <!-- MODULE: AGENDA DE GUARDIAS -->
+            <section class="glass-panel p-6 flex flex-col">
+                <h2 class="text-sm font-medium text-slate-300 uppercase tracking-wide mb-4 border-b border-slate-700 pb-2"><i class="fa-solid fa-calendar-days mr-2 text-clinical-blue"></i>Agenda de Guardias y Turnos</h2>
+                
+                <div id="calendar-setup" class="flex flex-col gap-2 mb-2">
+                    <p class="text-[10px] text-slate-400">Pega aquí el ID de tu Google Calendar público o el código de inserción:</p>
+                    <div class="flex gap-2">
+                        <input type="text" id="calendar-input" placeholder="Ej: tunombre@gmail.com o src=..." class="w-full bg-slate-800/50 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-clinical-blue">
+                        <button id="btn-save-calendar" class="bg-clinical-blue/20 text-clinical-blue border border-clinical-blue/30 hover:bg-clinical-blue hover:text-white px-3 py-2 rounded transition" title="Guardar Calendario">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="calendar-view" class="hidden relative w-full h-[300px] rounded overflow-hidden border border-slate-700 bg-slate-900/80">
+                    <iframe id="calendar-iframe" class="absolute inset-0 w-full h-full" src="" frameborder="0" scrolling="no"></iframe>
+                    <button id="btn-edit-calendar" class="absolute top-2 right-2 bg-slate-800/80 hover:bg-slate-700 text-white w-6 h-6 rounded flex items-center justify-center transition border border-slate-600 shadow-md" title="Editar Calendario"><i class="fa-solid fa-pen text-[10px]"></i></button>
+                </div>
+            </section>
+
+            <!-- WIDGET: PRÓXIMA GUARDIA PASIVA -->
+            <section class="glass-panel p-4 flex flex-col justify-center text-center">
+                <h3 class="text-[10px] uppercase tracking-widest text-slate-400 font-bold mb-1"><i class="fa-solid fa-bell-concierge mr-1 text-clinical-yellow"></i>Próxima Guardia Pasiva</h3>
+                <div class="text-2xl font-black text-white" id="guardia-countdown">-- DÍAS</div>
+                <div class="text-xs text-clinical-blue mt-1 font-semibold" id="guardia-date">Cargando...</div>
+            </section>
+        </div>
+
+        <!-- COLUMN 3: MULTIMEDIA & ANALÍTICAS -->
+        <div class="lg:col-span-4 flex flex-col gap-6">
+            
+            <!-- MODULE 4: YOUTUBE LOFI MONITOR -->
+            <section class="glass-panel p-6 flex flex-col">
+                <h2 class="text-sm font-medium text-slate-300 w-full mb-4 uppercase tracking-wide border-b border-slate-700 pb-2"><i class="fa-brands fa-youtube mr-2 text-clinical-blue"></i>Monitor Multimedia</h2>
+                
+                <div class="flex gap-2 mb-4">
+                    <input type="text" id="youtube-input" placeholder="Enlace de YouTube..." class="w-full bg-slate-800/50 border border-slate-700 rounded px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-clinical-blue">
+                    <button id="btn-set-youtube" class="bg-clinical-blue/20 text-clinical-blue border border-clinical-blue/30 hover:bg-clinical-blue hover:text-white px-3 py-2 rounded transition" title="Cargar Video">
+                        <i class="fa-solid fa-play"></i>
+                    </button>
+                </div>
+
+                <div class="relative w-full aspect-video rounded overflow-hidden border border-slate-700 bg-slate-900/80 flex flex-col items-center justify-center">
+                    <div id="youtube-empty" class="flex flex-col items-center justify-center text-slate-500 p-4 text-center absolute inset-0 z-10">
+                        <i class="fa-solid fa-display text-3xl mb-2"></i>
+                        <p class="text-xs">Ingresa el enlace de YouTube para tu música de concentración o Lofi.</p>
+                    </div>
+                    <iframe id="youtube-iframe" class="hidden absolute inset-0 w-full h-full z-20" src="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                </div>
+                <div id="youtube-fallback-container" class="hidden mt-2 text-center">
+                    <p class="text-[10px] text-slate-400">¿Dice "Accede" o el video está bloqueado?</p>
+                    <a id="youtube-fallback-link" href="#" target="_blank" class="text-xs text-clinical-blue hover:underline"><i class="fa-solid fa-arrow-up-right-from-square mr-1"></i>Ábrelo directamente en YouTube</a>
+                </div>
+            </section>
+
+            <!-- MODULE 3: ANALÍTICAS -->
+            <section class="glass-panel p-6 flex flex-col flex-grow">
+                <h2 class="text-sm font-medium text-slate-300 w-full mb-4 uppercase tracking-wide border-b border-slate-700 pb-2"><i class="fa-solid fa-chart-line mr-2 text-clinical-blue"></i>Monitor de Rendimiento</h2>
+                
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="bg-slate-800/40 p-3 rounded border border-slate-700/50">
+                        <div class="text-[10px] text-slate-400 uppercase mb-1">Dosis (Pomos)</div>
+                        <div class="text-2xl font-mono text-clinical-blue" id="stat-pomodoros">0</div>
+                    </div>
+                    <div class="bg-slate-800/40 p-3 rounded border border-slate-700/50">
+                        <div class="text-[10px] text-slate-400 uppercase mb-1">Horas Clínicas</div>
+                        <div class="text-2xl font-mono text-clinical-green" id="stat-hours">0.0</div>
+                    </div>
+                </div>
+
+                <div class="relative w-full flex-grow flex items-center justify-center min-h-[150px] mb-6">
+                    <canvas id="subjectChart"></canvas>
+                </div>
+                
+                <div class="relative w-full min-h-[150px]">
+                    <canvas id="weeklyChart"></canvas>
+                </div>
+            </section>
+
+            <!-- MODULE 6: INTERCONSULTAS (PEERJS) -->
+            <section class="glass-panel p-6 flex flex-col">
+                <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                    <h2 class="text-sm font-medium text-slate-300 uppercase tracking-wide"><i class="fa-solid fa-network-wired mr-2 text-clinical-blue"></i>Interconsultas</h2>
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[9px] uppercase tracking-widest text-slate-500 font-bold" id="peer-status-text">Iniciando...</span>
+                            <div id="peer-led" class="w-2.5 h-2.5 rounded-full bg-slate-600 transition-all duration-300"></div>
+                        </div>
+                        <button id="btn-toggle-peer-setup" class="text-slate-400 hover:text-white transition p-1" title="Mostrar/Ocultar Conexión">
+                            <i class="fa-solid fa-chevron-up transition-transform duration-300" id="icon-toggle-peer"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Setup / My Info -->
+                <div class="mb-4 bg-slate-800/40 p-3 rounded border border-slate-700/50">
+                    
+                    <!-- Avatar & Name -->
+                    <div class="flex items-center gap-3">
+                        <div class="relative group cursor-pointer shrink-0" onclick="document.getElementById('my-avatar-upload').click()" title="Cambiar foto de perfil">
+                            <img id="my-avatar-img" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2364748b'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>" class="w-10 h-10 rounded-full object-cover border border-slate-600 group-hover:border-clinical-blue transition-colors bg-slate-900">
+                            <div class="absolute inset-0 bg-black/50 rounded-full hidden group-hover:flex items-center justify-center">
+                                <i class="fa-solid fa-camera text-[10px] text-white"></i>
+                            </div>
+                            <input type="file" id="my-avatar-upload" accept="image/*" class="hidden">
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-[9px] text-slate-400 uppercase mb-0.5">Identificación Médica</p>
+                            <input type="text" id="my-peer-name" placeholder="Ej: Dra. Grey" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-clinical-blue" value="Médico de Guardia">
+                        </div>
+                    </div>
+
+                    <!-- Codes Container (Minimizable) -->
+                    <div id="peer-setup-container" class="transition-all duration-300 overflow-hidden origin-top mt-3 pt-3 border-t border-slate-700/50">
+                        <p class="text-[10px] text-slate-400 uppercase mb-1">Tu Código de Colega:</p>
+                        <div class="flex gap-2 mb-4">
+                            <input type="text" id="my-peer-id" readonly class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs font-mono text-clinical-blue text-center cursor-copy select-all" value="Generando...">
+                            <button id="btn-copy-peer" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1.5 rounded transition" title="Copiar"><i class="fa-regular fa-copy"></i></button>
+                        </div>
+
+                        <!-- Connect to friend -->
+                        <p class="text-[10px] text-slate-400 uppercase mb-1">Conectar con Colega:</p>
+                        <div class="flex gap-2">
+                            <input type="text" id="friend-peer-id" placeholder="Pegar código..." class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-clinical-blue">
+                            <button id="btn-connect-peer" class="bg-clinical-blue hover:bg-blue-500 text-white px-3 py-1.5 rounded transition text-xs font-medium">Llamar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Connected Peer Monitor -->
+                <div id="remote-peer-card" class="hidden flex-col gap-2 mt-2 pt-4 border-t border-slate-700/50">
+                    <div class="flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <img id="remote-avatar-img" src="" class="w-6 h-6 rounded-full object-cover border border-slate-600 hidden">
+                            <i id="remote-avatar-icon" class="fa-solid fa-user-doctor text-slate-400"></i>
+                            <span id="remote-name" class="text-xs font-bold text-white truncate max-w-[100px]">Colega</span>
+                        </div>
+                        <div class="text-xs font-mono font-bold" id="remote-timer">00:00</div>
+                    </div>
+                    
+                    <div class="flex justify-between items-center mt-1">
+                        <div class="text-[10px] bg-clinical-blue/20 text-clinical-blue px-2 py-0.5 rounded border border-clinical-blue/30" id="remote-subject">Sin Materia</div>
+                        <div class="text-[10px] text-slate-400"><span id="remote-hours" class="text-clinical-green font-semibold">0.0</span> hrs hoy</div>
+                    </div>
+                    
+                    <div class="w-full bg-slate-800 rounded-full h-1.5 border border-slate-700 mt-1">
+                        <div id="remote-progress-bar" class="bg-clinical-blue h-full rounded-full transition-all duration-1000" style="width: 0%"></div>
+                    </div>
+                    <div class="text-right mt-1">
+                        <span class="text-[9px] uppercase tracking-widest text-slate-500" id="remote-mode">Esperando estado...</span>
+                    </div>
+
+                    <!-- Remote Patient Info -->
+                    <div id="remote-patient-container" class="hidden mt-2 p-2 bg-slate-800/60 rounded border border-slate-700/80 flex items-center gap-3">
+                        <div class="text-xl shrink-0" id="remote-patient-sprite">🤕</div>
+                        <div class="flex-grow">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-[9px] text-slate-300 font-bold uppercase tracking-wide">Pte <span id="remote-patient-id">#101</span></span>
+                                <span class="text-[9px] font-mono font-bold text-clinical-green" id="remote-patient-hp-text">100/100</span>
+                            </div>
+                            <div class="w-full bg-slate-900 rounded-full h-1.5 border border-slate-700">
+                                <div class="bg-clinical-green h-1.5 rounded-full transition-all duration-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" id="remote-patient-hp-bar" style="width: 100%"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+        </div>
+
+        <!-- FLOATING CHAT WIDGET -->
+        <div id="floating-chat-widget" class="fixed bottom-6 right-6 z-50 flex flex-col items-end hidden" style="--chat-bg: #0f172a; --chat-me: #0ea5e9; --chat-them: #1e293b;">
+            <!-- FAB Minimizer -->
+            <button id="btn-chat-fab" class="hidden relative bg-clinical-blue hover:bg-[#0284c7] text-white w-14 h-14 rounded-full shadow-[0_4px_20px_rgba(14,165,233,0.5)] flex items-center justify-center text-xl transition-transform hover:scale-110 z-50">
+                <i class="fa-solid fa-comments"></i>
+                <span id="chat-fab-badge" class="hidden absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-[#0f172a]"></span>
+            </button>
+            <!-- Chat Window -->
+            <div id="chat-window" class="w-80 h-96 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.8)] flex flex-col overflow-hidden mb-4 transition-all duration-300 origin-bottom-right scale-0 opacity-0 hidden" style="background-color: rgba(var(--chat-bg-rgb, 15,23,42), 0.85);">
+                <!-- Header -->
+                <div class="p-3 border-b border-slate-700/80 bg-slate-900/60 flex justify-between items-center cursor-default">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-notes-medical text-clinical-blue animate-pulse"></i>
+                        <span class="text-xs font-bold text-white tracking-wide">Interconsulta VIP</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button id="btn-chat-settings" class="text-slate-400 hover:text-white transition" title="Personalizar Chat"><i class="fa-solid fa-gear"></i></button>
+                        <button id="btn-chat-minimize" class="text-slate-400 hover:text-white transition" title="Minimizar"><i class="fa-solid fa-minus"></i></button>
+                    </div>
+                </div>
+
+                <!-- Settings Panel -->
+                <div id="chat-settings-panel" class="hidden p-4 bg-slate-900/95 border-b border-slate-700/80 text-[11px] font-medium text-slate-300 flex-col gap-4 transition-all">
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5">
+                            <span>Fondo</span>
+                        </div>
+                        <div class="flex gap-2" id="palette-bg"></div>
+                        <input type="hidden" id="chat-color-bg" value="#0f172a">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5">
+                            <span>Mis Burbujas</span>
+                        </div>
+                        <div class="flex gap-2" id="palette-me"></div>
+                        <input type="hidden" id="chat-color-me" value="#0ea5e9">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5">
+                            <span>Sus Burbujas</span>
+                        </div>
+                        <div class="flex gap-2" id="palette-them"></div>
+                        <input type="hidden" id="chat-color-them" value="#1e293b">
+                    </div>
+                </div>
+                <!-- Messages -->
+                <div id="peer-chat-messages" class="flex-grow overflow-y-auto p-4 space-y-3 flex flex-col scroll-smooth">
+                    <!-- Messages injected here -->
+                </div>
+
+                <!-- Input -->
+                <form id="peer-chat-form" class="flex border-t border-slate-700/80 bg-slate-900/60 p-2 gap-2 backdrop-blur-lg">
+                    <button type="button" id="btn-fuerzas" class="w-9 h-9 flex items-center justify-center rounded-lg bg-clinical-yellow text-slate-900 hover:bg-yellow-400 hover:scale-105 transition shadow-lg shrink-0 group relative" title="¡Enviar Fuerzas!">
+                        <i class="fa-solid fa-bolt"></i>
+                        <span class="absolute -top-8 bg-slate-800 text-clinical-yellow text-[9px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none">Fuerzas</span>
+                    </button>
+                    <input type="text" id="peer-chat-input" class="flex-grow min-w-0 bg-slate-800 border border-slate-700 text-white px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-clinical-blue transition-colors shadow-inner" placeholder="Escribir mensaje clínico..." autocomplete="off">
+                    <button type="submit" class="w-9 h-9 flex items-center justify-center rounded-lg bg-clinical-blue text-white hover:bg-blue-500 hover:scale-105 transition shadow-lg shrink-0"><i class="fa-solid fa-paper-plane"></i></button>
+                </form>
+            </div>
+
+            <!-- FAB Button -->
+            <button id="chat-fab" class="w-14 h-14 bg-clinical-blue text-white rounded-full shadow-[0_0_15px_rgba(14,165,233,0.6)] flex items-center justify-center hover:scale-110 transition-transform relative z-50">
+                <i class="fa-solid fa-pager text-xl"></i>
+                <!-- Unread Badge -->
+                <span id="chat-badge" class="absolute -top-1 -right-1 w-5 h-5 bg-clinical-red text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-slate-900 hidden transition-transform scale-0">0</span>
+            </button>
+        </div>
+
+    </main>
+
+    <!-- MODULE 5: FERIADOS (GUARDIA PASIVA) -->
+    <footer class="max-w-7xl mx-auto mt-6 glass-panel p-4 flex flex-col md:flex-row items-center justify-between border-clinical-green/20 relative overflow-hidden" id="holiday-widget" style="border-color: rgba(16, 185, 129, 0.2);">
+        <div class="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-cyan-500/5 pointer-events-none"></div>
+        <div class="relative z-10 flex items-center gap-4 w-full md:w-auto">
+            <div class="w-12 h-12 rounded-full bg-slate-900/80 border border-slate-700 flex shrink-0 items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                <i class="fa-solid fa-mug-hot text-xl"></i>
+            </div>
+            <div>
+                <h3 class="text-[10px] uppercase tracking-widest text-emerald-500 font-bold mb-1">Guardia Pasiva Programada</h3>
+                <p class="text-sm font-semibold text-slate-200" id="holiday-name">Buscando expedientes...</p>
+            </div>
+        </div>
+        <div class="relative z-10 flex flex-col md:text-right mt-4 md:mt-0 text-left w-full md:w-auto bg-slate-900/50 md:bg-transparent p-3 md:p-0 rounded-lg">
+            <span class="text-[10px] uppercase text-slate-400 mb-1">Paciente de alta en:</span>
+            <span class="text-xl font-mono text-cyan-400 font-bold tracking-tight" id="holiday-countdown">-- días</span>
+            <span class="text-xs text-slate-400 capitalize" id="holiday-date">--</span>
+        </div>
+    </footer>
+
+    <!-- CONFIGURATION MODAL -->
+    <div id="config-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+        <div class="modal-glass w-full max-w-2xl rounded-xl p-6 relative max-h-[90vh] overflow-y-auto">
+            <button id="btn-close-config" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 class="text-xl font-semibold text-white mb-6 border-b border-slate-700 pb-2"><i class="fa-solid fa-sliders mr-2 text-clinical-blue"></i>Parámetros del Sistema</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Timers config -->
+                <div>
+                    <h3 class="text-sm font-medium text-slate-300 uppercase tracking-wide mb-4 text-clinical-blue">Tiempos (Minutos)</h3>
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <label class="text-sm text-slate-300">Guardia (Pomodoro)</label>
+                            <input type="number" id="cfg-time-study" class="w-20 bg-slate-800 border border-slate-600 rounded p-1 text-center text-white" min="1" max="120">
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <label class="text-sm text-slate-300">Descanso Breve</label>
+                            <input type="number" id="cfg-time-short" class="w-20 bg-slate-800 border border-slate-600 rounded p-1 text-center text-white" min="1" max="30">
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <label class="text-sm text-slate-300">Pausa Larga</label>
+                            <input type="number" id="cfg-time-long" class="w-20 bg-slate-800 border border-slate-600 rounded p-1 text-center text-white" min="1" max="60">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Subjects CRUD -->
+                <div>
+                    <h3 class="text-sm font-medium text-slate-300 uppercase tracking-wide mb-3 text-clinical-blue">Especialidades (Materias)</h3>
+                    
+                    <div class="flex flex-wrap gap-2 mb-3" id="palette-subject"></div>
+                    
+                    <form id="form-add-subject" class="flex gap-2 mb-4">
+                        <input type="text" id="cfg-subject-name" placeholder="Nueva materia..." required class="flex-grow bg-slate-800 border border-slate-600 rounded p-1.5 text-sm text-white">
+                        <input type="hidden" id="cfg-subject-color" value="#0ea5e9">
+                        <button type="submit" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded text-sm"><i class="fa-solid fa-plus"></i></button>
+                    </form>
+                    
+                    <div id="cfg-subjects-list" class="space-y-2 max-h-40 overflow-y-auto pr-2">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-8 pt-4 border-t border-slate-700 flex justify-between items-center">
+                <button id="btn-reset-stats" class="text-xs text-clinical-red hover:text-red-400 border border-clinical-red/30 hover:bg-clinical-red/10 px-3 py-2 rounded transition"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Reiniciar Estadísticas</button>
+                <button id="btn-save-config" class="bg-clinical-blue hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-medium shadow-lg transition">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CELEBRATION OVERLAY -->
+    <div id="celebration" class="celebration flex-col items-center">
+        <i class="fa-solid fa-truck-medical text-6xl text-clinical-green mb-4 bounce"></i>
+        <h2 class="text-3xl font-bold text-white shadow-sm">¡PACIENTE ESTABILIZADO!</h2>
+        <p class="text-clinical-green mt-2 font-mono text-xl">+500 EXP Clínico</p>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
