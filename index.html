@@ -450,7 +450,16 @@
 
             <!-- MODULE 3: ANALÍTICAS -->
             <section class="glass-panel p-6 flex flex-col">
-                <h2 class="text-sm font-medium text-slate-300 w-full mb-4 uppercase tracking-wide border-b border-slate-700 pb-2"><i class="fa-solid fa-chart-line mr-2 text-clinical-blue"></i>Monitor de Rendimiento</h2>
+                <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
+                    <h2 class="text-sm font-medium text-slate-300 uppercase tracking-wide"><i class="fa-solid fa-chart-line mr-2 text-clinical-blue"></i>Monitor de Rendimiento</h2>
+                    
+                    <div id="chart-time-filter" class="flex bg-slate-900/60 rounded-lg p-0.5 border border-slate-700/80">
+                        <button data-period="day" class="px-2 py-1 text-[10px] rounded-md font-medium text-white bg-slate-700 shadow-sm transition">Día</button>
+                        <button data-period="week" class="px-2 py-1 text-[10px] rounded-md font-medium text-slate-400 hover:text-white transition">Semana</button>
+                        <button data-period="month" class="px-2 py-1 text-[10px] rounded-md font-medium text-slate-400 hover:text-white transition">Mes</button>
+                        <button data-period="year" class="px-2 py-1 text-[10px] rounded-md font-medium text-slate-400 hover:text-white transition">Año</button>
+                    </div>
+                </div>
                 
                 <div class="grid grid-cols-2 gap-4 mb-4">
                     <div class="bg-slate-800/40 p-3 rounded border border-slate-700/50">
@@ -1370,11 +1379,48 @@
             }
         }
 
+        let activeChartPeriod = 'day';
+
         function getSubjectChartData() {
+            let dataArr = [];
+
+            if (activeChartPeriod === 'year' || !state.stats.history) {
+                dataArr = state.subjects.map(s => s.minutes);
+            } else {
+                dataArr = state.subjects.map(s => {
+                    let total = 0;
+                    const today = new Date();
+                    const history = state.stats.history || {};
+                    
+                    for (const [dateStr, subjects] of Object.entries(history)) {
+                        const entryDate = new Date(dateStr);
+                        // Add timezone offset to fix JS date parsing of ISO strings
+                        entryDate.setMinutes(entryDate.getMinutes() + entryDate.getTimezoneOffset());
+                        
+                        let inRange = false;
+                        
+                        if (activeChartPeriod === 'day') {
+                            inRange = (dateStr === today.toISOString().split('T')[0]);
+                        } else if (activeChartPeriod === 'week') {
+                            const diff = (today - entryDate) / (1000 * 60 * 60 * 24);
+                            inRange = diff <= 7;
+                        } else if (activeChartPeriod === 'month') {
+                            const diff = (today - entryDate) / (1000 * 60 * 60 * 24);
+                            inRange = diff <= 30;
+                        }
+                        
+                        if (inRange && subjects[s.id]) {
+                            total += subjects[s.id];
+                        }
+                    }
+                    return total;
+                });
+            }
+
             return {
                 labels: state.subjects.map(s => s.name),
                 datasets: [{
-                    data: state.subjects.map(s => s.minutes),
+                    data: dataArr,
                     backgroundColor: state.subjects.map(s => s.color),
                     borderWidth: 0,
                     borderRadius: 4
@@ -1384,9 +1430,32 @@
 
         function updateCharts() {
             try {
-                if(subjectChart) { subjectChart.data = getSubjectChartData(); subjectChart.update(); }
-                if(weeklyChart) { weeklyChart.data.datasets[0].data = state.stats.weeklyMinutes; weeklyChart.update(); }
+                if(subjectChart) { subjectChart.data = getSubjectChartData(); subjectChart.update('none'); }
+                if(weeklyChart) { weeklyChart.data.datasets[0].data = state.stats.weeklyMinutes; weeklyChart.update('none'); }
             } catch(e) {}
+        }
+        
+        // Init filters
+        const filterBtns = document.querySelectorAll('#chart-time-filter button');
+        if (filterBtns) {
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    filterBtns.forEach(b => {
+                        b.classList.remove('text-white', 'bg-slate-700', 'shadow-sm');
+                        b.classList.add('text-slate-400');
+                    });
+                    btn.classList.add('text-white', 'bg-slate-700', 'shadow-sm');
+                    btn.classList.remove('text-slate-400');
+                    
+                    activeChartPeriod = btn.dataset.period;
+                    
+                    // Trigger a smooth re-animation when switching tabs
+                    if(subjectChart) { 
+                        subjectChart.data = getSubjectChartData(); 
+                        subjectChart.update(); 
+                    }
+                });
+            });
         }
 
         // --- CORE FUNCTIONS ---
@@ -1527,6 +1596,13 @@
                     
                     const sub = state.subjects.find(s => s.id === state.timer.activeSubjectId);
                     if(sub) sub.minutes++;
+                    
+                    // Historical tracking
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    state.stats.history = state.stats.history || {};
+                    state.stats.history[todayStr] = state.stats.history[todayStr] || {};
+                    const subId = state.timer.activeSubjectId;
+                    state.stats.history[todayStr][subId] = (state.stats.history[todayStr][subId] || 0) + 1;
                     
                     saveState();
                     updateCharts();
@@ -2685,6 +2761,7 @@
                 btnLogout.addEventListener('click', () => {
                     try { 
                         localStorage.removeItem('cf_spotifyToken'); 
+                        localStorage.removeItem('cf_spotifyRefreshToken');
                         localStorage.removeItem('cf_spotifyCodeVerifier'); 
                     } catch(e) {}
                     unauthDiv.classList.remove('hidden');
@@ -2728,11 +2805,48 @@
                         const tokenData = await res.json();
                         if (tokenData.access_token) {
                             safeSet('cf_spotifyToken', tokenData.access_token);
+                            if (tokenData.refresh_token) safeSet('cf_spotifyRefreshToken', tokenData.refresh_token);
                         } else {
                             console.error('Spotify token exchange failed:', tokenData);
                         }
                     } catch(err) {
                         console.error('Error exchanging PKCE code for token:', err);
+                    }
+                }
+            } else {
+                // Background Refresh Token Flow
+                const savedRefreshToken = safeGet('cf_spotifyRefreshToken', null);
+                if (savedRefreshToken) {
+                    try {
+                        const tokenBody = new URLSearchParams({
+                            grant_type: 'refresh_token',
+                            refresh_token: savedRefreshToken,
+                            client_id: SPOTIFY_CLIENT_ID
+                        });
+
+                        const res = await fetch('https://accounts.spotify.com/api/token', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: tokenBody
+                        });
+
+                        if (res.ok) {
+                            const tokenData = await res.json();
+                            if (tokenData.access_token) {
+                                safeSet('cf_spotifyToken', tokenData.access_token);
+                                if (tokenData.refresh_token) {
+                                    safeSet('cf_spotifyRefreshToken', tokenData.refresh_token);
+                                }
+                            }
+                        } else {
+                            // Invalid refresh token
+                            try {
+                                localStorage.removeItem('cf_spotifyToken');
+                                localStorage.removeItem('cf_spotifyRefreshToken');
+                            } catch(e) {}
+                        }
+                    } catch(err) {
+                        console.error('Error refreshing Spotify token:', err);
                     }
                 }
             }
@@ -2757,7 +2871,10 @@
             .then(res => {
                 if (res.status === 401) {
                     // Token expired (401)
-                    try { localStorage.removeItem('cf_spotifyToken'); } catch(e) {}
+                    try { 
+                        localStorage.removeItem('cf_spotifyToken');
+                        localStorage.removeItem('cf_spotifyRefreshToken');
+                    } catch(e) {}
                     unauthDiv.classList.remove('hidden');
                     authDiv.classList.add('hidden');
                     authDiv.classList.remove('flex');
@@ -3113,7 +3230,7 @@
         if (savedPeerAvatar) {
             peerEls.myAvatarImg.src = savedPeerAvatar;
         }
-        const savedFriendId = safeGet('cf_friendId', '');
+        const savedFriendId = safeGet('cf_partnerPeerId', '');
         if (savedFriendId) {
             peerEls.friendInput.value = savedFriendId;
         }
@@ -3176,7 +3293,7 @@
                     peerEls.myIdInput.value = id;
                     updatePeerUI('standby');
 
-                    const friendId = safeGet('cf_friendId', '');
+                    const friendId = safeGet('cf_partnerPeerId', '');
                     if (friendId) {
                         setTimeout(() => {
                             updatePeerUI('connecting');
@@ -3215,6 +3332,9 @@
                 peerConnection.close();
             }
             peerConnection = conn;
+            
+            // Guardar automáticamente el código de destino exitoso
+            safeSet('cf_partnerPeerId', conn.peer);
             
             updatePeerUI('connected');
             peerEls.remoteAvatarImg.classList.remove('opacity-50', 'grayscale');
@@ -3390,8 +3510,6 @@
             const friendId = peerEls.friendInput.value.trim();
             if (!friendId) return;
             
-            safeSet('cf_friendId', friendId);
-            
             updatePeerUI('connecting');
             const conn = peer.connect(friendId, { reliable: true });
             
@@ -3409,5 +3527,571 @@
         setTimeout(initPeer, 1000);
 
     </script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     WIDGET ENGINE v2.0 — ClinicalFocus
+     Collapsible widgets + Intra-column Pointer Drag-and-Drop
+     iOS Spring Physics | Glassmorphism Deep | 60fps
+     All IDs/logic above are SACRED and untouched.
+═══════════════════════════════════════════════════════════════ -->
+
+<style id="widget-engine-css">
+/* ── Widget Wrapper ───────────────────────────────────────────── */
+.wgt-wrap {
+  border-radius: 1rem;
+  transition: box-shadow 0.3s ease;
+}
+
+/* ── Drag Handle Header ──────────────────────────────────────── */
+.wgt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0.85rem 0.55rem 0.6rem;
+  border-radius: 1rem 1rem 0 0;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  background: rgba(15, 23, 42, 0.6);
+  box-shadow: inset 0 1px 1px rgba(255,255,255,0.1);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  transition: background 0.2s ease, border-radius 0.2s ease;
+}
+.wgt-header:hover {
+  background: rgba(30, 41, 59, 0.7);
+}
+.wgt-header:active { cursor: grabbing; }
+
+.wgt-grip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0.35rem 0.5rem;
+  opacity: 0.3;
+  transition: opacity 0.2s;
+  cursor: grab;
+  border-radius: 0.4rem;
+}
+.wgt-header:hover .wgt-grip { opacity: 0.65; }
+.wgt-grip span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: rgba(255,255,255,0.8);
+  border-radius: 2px;
+}
+
+.wgt-title {
+  flex: 1;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(148,163,184,0.85);
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 0.5rem;
+}
+
+.wgt-btn-collapse {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: rgba(148,163,184,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.55rem;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+.wgt-btn-collapse:hover {
+  background: rgba(14,165,233,0.2);
+  border-color: rgba(14,165,233,0.4);
+  color: #0ea5e9;
+  transform: scale(1.1);
+}
+.wgt-btn-collapse i {
+  transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* ── Collapsible Body ────────────────────────────────────────── */
+.wgt-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows 0.5s cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 0.4s ease-out;
+  opacity: 1;
+}
+.wgt-body-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Collapsed state */
+.wgt-collapsed .wgt-body {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+.wgt-collapsed .wgt-header {
+  border-radius: 1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.wgt-collapsed .wgt-btn-collapse i {
+  transform: rotate(-180deg);
+}
+.wgt-collapsed {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3) !important;
+}
+
+/* ── Drag States ─────────────────────────────────────────────── */
+.wgt-dragging {
+  z-index: 9999 !important;
+  position: relative;
+  transform: scale(0.97) !important;
+  box-shadow:
+    0 28px 60px rgba(0,0,0,0.55),
+    0 8px 24px rgba(14,165,233,0.15),
+    inset 0 1px 1px rgba(255,255,255,0.15) !important;
+  opacity: 0.96;
+  cursor: grabbing !important;
+  border: 1px solid rgba(14,165,233,0.25) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease !important;
+}
+
+/* Drop placeholder ghost */
+.wgt-placeholder {
+  border-radius: 1rem;
+  background: rgba(14,165,233,0.04);
+  border: 2px dashed rgba(14,165,233,0.2);
+  transition: all 0.2s ease;
+  animation: wgt-placeholder-pulse 1.5s ease-in-out infinite alternate;
+}
+@keyframes wgt-placeholder-pulse {
+  from { border-color: rgba(14,165,233,0.15); background: rgba(14,165,233,0.03); }
+  to   { border-color: rgba(14,165,233,0.35); background: rgba(14,165,233,0.07); }
+}
+
+/* Neighbor highlight during drag */
+.wgt-drop-ready {
+  outline: 2px solid rgba(14,165,233,0.2);
+  outline-offset: 2px;
+  transition: outline 0.2s ease;
+}
+
+/* ── Deep Glassmorphism Enhancement ─────────────────────────── */
+.wgt-wrap .glass-panel,
+.wgt-wrap > .glass-panel {
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-top: none;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  box-shadow:
+    0 20px 40px rgba(0,0,0,0.4),
+    inset 0 -1px 0px rgba(0,0,0,0.2);
+}
+
+/* ── Resizer ─────────────────────────────────────────────────── */
+.wgt-resizer {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 12px;
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
+}
+.wgt-resizer:hover, .wgt-resizer:active {
+  opacity: 0.8;
+}
+.wgt-resizer::after {
+  content: '';
+  width: 24px;
+  height: 4px;
+  background: rgba(255,255,255,0.6);
+  border-radius: 2px;
+}
+
+</style>
+
+<script id="widget-engine-js">
+(function () {
+  'use strict';
+
+  const STORAGE_KEY = 'cf_widget_state_v2';
+
+  // ─── Widget Definitions ────────────────────────────────────────
+  // Each entry: { id, selector, title, icon, column }
+  // selector targets the outermost element to wrap
+  const WIDGET_DEFS = [
+    { id: 'wgt-patient',    el: () => document.getElementById('patient-ward'),       title: 'Sala de Urgencias', icon: 'fa-bed-pulse' },
+    { id: 'wgt-pomodoro',   el: () => document.getElementById('pomodoro-placeholder'), title: 'Temporizador Pomodoro', icon: 'fa-stopwatch' },
+    { id: 'wgt-spotify',    el: () => document.getElementById('spotify-module'),     title: 'Audio Terapia',     icon: 'fa-spotify fa-brands' },
+    { id: 'wgt-holiday',    el: () => document.getElementById('holiday-widget'),     title: 'Guardia Pasiva',    icon: 'fa-mug-hot' },
+    { id: 'wgt-todo',       el: () => {
+      const sections = document.querySelectorAll('main section');
+      for (const s of sections) if (s.querySelector('#task-list')) return s;
+      return null;
+    }, title: 'Evoluciones (To-Do)', icon: 'fa-clipboard-user', resizable: true },
+    { id: 'wgt-agenda',     el: () => {
+      const sections = document.querySelectorAll('main section');
+      for (const s of sections) if (s.querySelector('#calendar-iframe')) return s;
+      return null;
+    }, title: 'Agenda de Guardias', icon: 'fa-calendar-days', resizable: true },
+    { id: 'wgt-youtube',    el: () => {
+      const sections = document.querySelectorAll('main section');
+      for (const s of sections) if (s.querySelector('#youtube-iframe')) return s;
+      return null;
+    }, title: 'Monitor Multimedia', icon: 'fa-youtube fa-brands' },
+    { id: 'wgt-analytics',  el: () => {
+      const sections = document.querySelectorAll('main section');
+      for (const s of sections) if (s.querySelector('#subjectChart')) return s;
+      return null;
+    }, title: 'Monitor de Rendimiento', icon: 'fa-chart-line' },
+    { id: 'wgt-interconsultas', el: () => {
+      const sections = document.querySelectorAll('main section');
+      for (const s of sections) if (s.querySelector('#my-peer-id')) return s;
+      return null;
+    }, title: 'Interconsultas', icon: 'fa-network-wired' },
+  ];
+
+  // ─── State ────────────────────────────────────────────────────
+  let state = loadState();
+
+  function loadState() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    } catch { return {}; }
+  }
+
+  function saveState() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+  }
+
+  // ─── Instrument Widget ────────────────────────────────────────
+  function instrumentWidget(def) {
+    const el = def.el();
+    if (!el) return null;
+
+    // Avoid double-instrumenting
+    if (el.closest('.wgt-wrap')) return null;
+
+    // Create wrapper
+    const wrap = document.createElement('div');
+    wrap.className = 'wgt-wrap flex flex-col';
+    wrap.dataset.wgtId = def.id;
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'wgt-header';
+    header.innerHTML = `
+      <div class="wgt-grip">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="wgt-title"><i class="fa-solid ${def.icon} mr-1.5 opacity-70"></i>${def.title}</div>
+      <button class="wgt-btn-collapse" title="Colapsar/Expandir">
+        <i class="fa-solid fa-chevron-down"></i>
+      </button>
+    `;
+
+    // Body wrapper for animation
+    const body = document.createElement('div');
+    body.className = 'wgt-body';
+    const bodyInner = document.createElement('div');
+    bodyInner.className = 'wgt-body-inner';
+
+    // Replace el with wrap
+    el.parentNode.insertBefore(wrap, el);
+    bodyInner.appendChild(el);
+    body.appendChild(bodyInner);
+    wrap.appendChild(header);
+    wrap.appendChild(body);
+
+    // Restore collapsed state
+    if (state[def.id]?.collapsed) {
+      wrap.classList.add('wgt-collapsed');
+    }
+
+    // --- Resizer Logic ---
+    if (def.resizable) {
+      const resizer = document.createElement('div');
+      resizer.className = 'wgt-resizer';
+      
+      if (window.getComputedStyle(el).position === 'static') {
+        el.style.position = 'relative';
+      }
+      
+      // Ensure padding at bottom so content doesn't touch the resizer
+      el.style.paddingBottom = '1.5rem';
+      
+      el.appendChild(resizer);
+
+      // Restore height from state
+      if (state[def.id]?.height) {
+        el.style.height = state[def.id].height + 'px';
+        el.style.flex = 'none'; // Overwrite flex inline styles
+      }
+
+      resizer.addEventListener('pointerdown', (e) => {
+        e.stopPropagation(); // NO ACTIVAR drag and drop general
+        e.preventDefault();
+        resizer.setPointerCapture(e.pointerId);
+
+        const startY = e.clientY;
+        const startHeight = el.getBoundingClientRect().height;
+
+        function onMove(me) {
+          const dy = me.clientY - startY;
+          let newHeight = startHeight + dy;
+          if (newHeight < 200) newHeight = 200; // Límite inferior
+          
+          el.style.height = newHeight + 'px';
+          el.style.flex = 'none';
+        }
+
+        function onUp() {
+          resizer.removeEventListener('pointermove', onMove);
+          resizer.removeEventListener('pointerup', onUp);
+          resizer.removeEventListener('pointercancel', onUp);
+          
+          state[def.id] = state[def.id] || {};
+          state[def.id].height = el.getBoundingClientRect().height;
+          saveState();
+        }
+
+        resizer.addEventListener('pointermove', onMove);
+        resizer.addEventListener('pointerup', onUp);
+        resizer.addEventListener('pointercancel', onUp);
+      });
+    }
+
+    // Collapse button
+    const collapseBtn = header.querySelector('.wgt-btn-collapse');
+    collapseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isCollapsed = wrap.classList.toggle('wgt-collapsed');
+      state[def.id] = state[def.id] || {};
+      state[def.id].collapsed = isCollapsed;
+      saveState();
+    });
+
+    return wrap;
+  }
+
+  // ─── Column Drag-and-Drop ─────────────────────────────────────
+  function initColumnDragDrop(column) {
+    const widgets = () => Array.from(column.querySelectorAll(':scope > .wgt-wrap'));
+
+    column.addEventListener('pointerdown', (startEvent) => {
+      const header = startEvent.target.closest('.wgt-header');
+      if (!header) return;
+
+      // Don't start drag from collapse button
+      if (startEvent.target.closest('.wgt-btn-collapse')) return;
+
+      const dragEl = header.closest('.wgt-wrap');
+      if (!dragEl) return;
+
+      startEvent.preventDefault();
+      dragEl.setPointerCapture(startEvent.pointerId);
+
+      const startY = startEvent.clientY;
+      let isDragging = false;
+      let placeholder = null;
+      let raf = null;
+      let lastY = startY;
+
+      const originalRect = dragEl.getBoundingClientRect();
+      let translateY = 0;
+
+      const siblings = widgets();
+      const dragIdx = siblings.indexOf(dragEl);
+
+      // Create ghost placeholder
+      function createPlaceholder() {
+        placeholder = document.createElement('div');
+        placeholder.className = 'wgt-placeholder';
+        placeholder.style.height = `${dragEl.offsetHeight}px`;
+        placeholder.style.minHeight = `${dragEl.offsetHeight}px`;
+        dragEl.parentNode.insertBefore(placeholder, dragEl.nextSibling);
+
+        dragEl.style.position = 'relative';
+        dragEl.style.zIndex = '9999';
+        dragEl.classList.add('wgt-dragging');
+      }
+
+      function removePlaceholder() {
+        if (placeholder && placeholder.parentNode) {
+          placeholder.parentNode.removeChild(placeholder);
+          placeholder = null;
+        }
+      }
+
+      function getInsertionIndex(clientY) {
+        const current = widgets().filter(w => w !== dragEl && !w.classList.contains('wgt-placeholder'));
+        for (let i = 0; i < current.length; i++) {
+          const r = current[i].getBoundingClientRect();
+          const mid = r.top + r.height / 2;
+          if (clientY < mid) return i;
+        }
+        return current.length;
+      }
+
+      function onMove(e) {
+        lastY = e.clientY;
+        const dy = lastY - startY;
+
+        if (!isDragging && Math.abs(dy) > 6) {
+          isDragging = true;
+          createPlaceholder();
+        }
+
+        if (!isDragging) return;
+
+        if (raf) cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(() => {
+          translateY = dy;
+          dragEl.style.transform = `translate3d(0, ${translateY}px, 0) scale(0.97)`;
+
+          // Determine new position for placeholder
+          const insertIdx = getInsertionIndex(lastY);
+          const current = widgets().filter(w => w !== dragEl);
+          const before = insertIdx < current.length ? current[insertIdx] : null;
+
+          if (before && before !== placeholder) {
+            column.insertBefore(placeholder, before);
+          } else if (!before) {
+            column.appendChild(placeholder);
+          }
+        });
+      }
+
+      function onUp() {
+        dragEl.removeEventListener('pointermove', onMove);
+        dragEl.removeEventListener('pointerup', onUp);
+        dragEl.removeEventListener('pointercancel', onUp);
+
+        if (raf) cancelAnimationFrame(raf);
+
+        if (!isDragging) {
+          return;
+        }
+
+        // Snap to placeholder position
+        const snapTarget = placeholder;
+        dragEl.style.transform = '';
+        dragEl.style.position = '';
+        dragEl.style.zIndex = '';
+        dragEl.classList.remove('wgt-dragging');
+
+        if (snapTarget && snapTarget.parentNode) {
+          snapTarget.parentNode.insertBefore(dragEl, snapTarget);
+          removePlaceholder();
+        } else {
+          removePlaceholder();
+        }
+
+        // Save new order
+        const newOrder = widgets().map(w => w.dataset.wgtId);
+        state.__order = state.__order || {};
+        const colId = column.dataset.wgtCol || column.className;
+        state.__order[colId] = newOrder;
+        saveState();
+
+        // Animate snap
+        dragEl.style.transition = 'transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+        requestAnimationFrame(() => {
+          dragEl.style.transform = 'scale(1)';
+          setTimeout(() => { dragEl.style.transition = ''; }, 400);
+        });
+      }
+
+      dragEl.addEventListener('pointermove', onMove);
+      dragEl.addEventListener('pointerup', onUp);
+      dragEl.addEventListener('pointercancel', onUp);
+    });
+  }
+
+  // ─── Restore Column Order ─────────────────────────────────────
+  function restoreColumnOrder(column) {
+    const colId = column.dataset.wgtCol || column.className;
+    const savedOrder = state.__order?.[colId];
+    if (!savedOrder || !Array.isArray(savedOrder)) return;
+
+    const current = Array.from(column.querySelectorAll(':scope > .wgt-wrap'));
+    const map = {};
+    current.forEach(w => map[w.dataset.wgtId] = w);
+
+    for (const id of savedOrder) {
+      if (map[id]) column.appendChild(map[id]);
+    }
+  }
+
+  // ─── Meet widget (no glass-panel, just section) ───────────────
+  function instrumentMeetWidget() {
+    const sections = document.querySelectorAll('main section');
+    for (const s of sections) {
+      if (s.querySelector('#holiday-name')) continue;
+      if (s.querySelector('.glass-panel')) continue;
+      if (s.querySelector('#task-list')) continue;
+      if (s.querySelector('#calendar-iframe')) continue;
+      // The Meet card is a plain section with a link
+      if (s.querySelector('a[href*="meet.google.com"]')) {
+        if (!s.closest('.wgt-wrap')) {
+          s.dataset.isMeet = true;
+        }
+      }
+    }
+  }
+
+  // ─── Init ─────────────────────────────────────────────────────
+  function init() {
+    // Label columns for persistence
+    const cols = document.querySelectorAll('main > section, main > div');
+    cols.forEach((col, i) => {
+      col.dataset.wgtCol = `col-${i}`;
+    });
+
+    // Instrument all widgets
+    WIDGET_DEFS.forEach(def => instrumentWidget(def));
+
+    // Init drag on each column
+    const allCols = document.querySelectorAll('main > section, main > div');
+    allCols.forEach(col => {
+      restoreColumnOrder(col);
+      initColumnDragDrop(col);
+    });
+  }
+
+  // Wait for DOM to be fully ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    // Small delay to ensure all other scripts have initialized
+    setTimeout(init, 200);
+  }
+
+})();
+</script>
+
 </body>
 </html>
