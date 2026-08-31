@@ -103,6 +103,35 @@
 
         .task-completed { text-decoration: line-through; opacity: 0.5; }
         
+        .dark-calendar-filter {
+            filter: invert(0.9) hue-rotate(180deg) contrast(1.1);
+        }
+
+        /* Micro-Animations */
+        @keyframes fadeInTask {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeInTask 0.35s ease-out forwards;
+        }
+
+        @keyframes patientBreathing {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-2px); }
+        }
+        .animate-breathing {
+            animation: patientBreathing 3s ease-in-out infinite;
+        }
+
+        @keyframes ringPulse {
+            0%, 100% { filter: drop-shadow(0 0 6px rgba(14, 165, 233, 0.4)); }
+            50% { filter: drop-shadow(0 0 16px rgba(14, 165, 233, 0.8)); }
+        }
+        .timer-ring-active {
+            animation: ringPulse 2s ease-in-out infinite;
+        }
+
         .celebration {
             position: fixed; inset: 0; pointer-events: none; z-index: 100;
             display: none; justify-content: center; align-items: center;
@@ -133,21 +162,26 @@
     <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         <!-- MODULE 1: POMODORO CLÍNICO & GAMIFICATION -->
-        <section class="lg:col-span-4 flex flex-col gap-6">
+        <section class="lg:col-span-4 flex flex-col gap-6 h-full">
             
             <!-- GAMIFICATION: PATIENT WARD -->
-            <div class="glass-panel p-6 relative overflow-hidden flex flex-col" id="patient-ward">
+            <div class="glass-panel p-6 relative overflow-hidden flex flex-col animate-breathing" id="patient-ward">
                 <h2 class="text-sm font-medium text-slate-300 mb-4 uppercase tracking-wide border-b border-slate-700 pb-2">
                     <i class="fa-solid fa-bed-pulse mr-2 text-clinical-blue"></i>Sala de Urgencias (Retro)
                 </h2>
                 
                 <div id="game-setup" class="mb-4">
                     <p class="text-xs text-slate-400 mb-3">Define tu Turno de Guardia para admitir a un paciente.</p>
-                    <div class="flex gap-2">
-                        <input type="number" id="target-pomodoros" min="1" max="12" value="4" class="w-16 bg-slate-800 border border-slate-700 rounded p-1 text-center text-sm focus:outline-none focus:border-clinical-blue">
-                        <span class="text-sm text-slate-300 self-center">Pomodoros a completar</span>
+                    <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                        <span class="text-xs text-slate-300 font-medium">Pomodoros a completar:</span>
+                        <div class="flex items-center gap-2 bg-slate-800/80 p-1 rounded-lg border border-slate-700">
+                            <button id="btn-target-dec" type="button" class="w-7 h-7 rounded-md bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center transition hover:scale-105 active:scale-95 text-xs font-bold"><i class="fa-solid fa-minus"></i></button>
+                            <span id="target-pomodoros-display" class="w-6 text-center font-mono font-bold text-white text-base">4</span>
+                            <input type="hidden" id="target-pomodoros" value="4">
+                            <button id="btn-target-inc" type="button" class="w-7 h-7 rounded-md bg-slate-700 hover:bg-slate-600 text-white flex items-center justify-center transition hover:scale-105 active:scale-95 text-xs font-bold"><i class="fa-solid fa-plus"></i></button>
+                        </div>
                     </div>
-                    <button id="btn-admit-patient" class="mt-3 w-full bg-clinical-blue/20 text-clinical-blue border border-clinical-blue/50 hover:bg-clinical-blue hover:text-white py-2 rounded text-sm transition font-semibold">
+                    <button id="btn-admit-patient" class="mt-3 w-full bg-clinical-blue/20 text-clinical-blue border border-clinical-blue/50 hover:bg-clinical-blue hover:text-white py-2 rounded-lg text-sm transition hover:scale-105 active:scale-95 duration-200 font-semibold shadow-md">
                         Ingresar Paciente
                     </button>
                 </div>
@@ -160,7 +194,7 @@
                         </div>
                         <div class="flex flex-col items-end">
                             <div class="text-lg font-mono font-bold" id="patient-hp-text">20%</div>
-                            <button id="btn-kill-patient" class="text-[9px] uppercase tracking-widest text-slate-500 hover:text-clinical-red transition mt-1" title="Cancelar guardia">
+                            <button id="btn-kill-patient" class="text-[9px] uppercase tracking-widest text-slate-500 hover:text-clinical-red transition hover:scale-105 active:scale-95 duration-200 mt-1" title="Cancelar guardia">
                                 <i class="fa-solid fa-skull"></i> Matar Paciente
                             </button>
                         </div>
@@ -179,8 +213,8 @@
             </div>
 
             <!-- POMODORO TIMER PLACEHOLDER -->
-            <div id="pomodoro-placeholder" class="flex flex-col flex-grow relative">
-                <div id="pomodoro-panel" class="glass-panel p-6 flex flex-col items-center flex-grow transition-all duration-500 ease-in-out origin-bottom-left">
+            <div id="pomodoro-placeholder" class="flex flex-col relative h-fit">
+                <div id="pomodoro-panel" class="glass-panel p-6 flex flex-col items-center justify-center transition-all duration-500 ease-in-out origin-bottom-left">
                     
                     <div class="relative w-56 h-56 flex justify-center items-center my-4">
                         <svg class="absolute inset-0 w-full h-full transform -rotate-90" viewBox="0 0 100 100">
@@ -192,49 +226,49 @@
                         <div class="relative z-10 flex flex-col items-center">
                             <div id="timer-display" class="text-4xl font-mono font-bold text-white tracking-wider">00:00</div>
                             <div id="timer-mode-label" class="text-[10px] uppercase tracking-widest text-clinical-blue mt-1 font-semibold">Ronda de Guardia</div>
-                            <button id="btn-pip" class="mt-3 text-[10px] text-slate-400 hover:text-white transition bg-slate-800/80 px-2.5 py-1.5 rounded border border-slate-700" title="Reloj Flotante (Mini-reloj)"><i class="fa-regular fa-window-restore mr-1" id="icon-pip"></i>Mini-reloj</button>
+                            <button id="btn-pip" class="mt-3 text-[10px] text-slate-400 hover:text-white transition hover:scale-105 active:scale-95 duration-200 bg-slate-800/80 px-2.5 py-1.5 rounded border border-slate-700" title="Reloj Flotante (Mini-reloj)"><i class="fa-regular fa-window-restore mr-1" id="icon-pip"></i>Mini-reloj</button>
                         </div>
                     </div>
 
-                <div class="flex gap-3 mb-6">
-                    <button id="btn-start" class="w-12 h-12 rounded-full bg-clinical-blue text-white flex items-center justify-center hover:bg-blue-500 transition shadow-lg focus:outline-none">
-                        <i class="fa-solid fa-play"></i>
-                    </button>
-                    <button id="btn-pause" class="w-10 h-10 rounded-full bg-slate-700 text-white flex items-center justify-center hover:bg-slate-600 transition shadow-lg focus:outline-none self-center">
-                        <i class="fa-solid fa-pause"></i>
-                    </button>
-                    <button id="btn-skip" class="w-10 h-10 rounded-full bg-slate-700 text-white flex items-center justify-center hover:bg-slate-600 transition shadow-lg focus:outline-none self-center">
-                        <i class="fa-solid fa-forward-step"></i>
-                    </button>
-                </div>
-
-                <div class="grid grid-cols-3 gap-2 w-full mb-6">
-                    <button id="mode-study" class="mode-btn text-xs py-2 px-1 rounded transition border text-clinical-blue bg-clinical-blue/10 border-clinical-blue/30">Guardia</button>
-                    <button id="mode-short-break" class="mode-btn text-xs py-2 px-1 rounded transition border text-slate-400 bg-slate-800 border-transparent hover:bg-slate-700">Descanso</button>
-                    <button id="mode-long-break" class="mode-btn text-xs py-2 px-1 rounded transition border text-slate-400 bg-slate-800 border-transparent hover:bg-slate-700">Pausa Larga</button>
-                </div>
-
-                <!-- Subject Selector -->
-                <div class="w-full">
-                    <div class="text-[10px] text-slate-400 uppercase mb-2 flex justify-between">
-                        <span>Materia Activa</span>
-                        <span id="active-subject-name" class="text-clinical-blue font-semibold">Ninguna</span>
+                    <div class="flex gap-3 mb-6">
+                        <button id="btn-start" class="w-12 h-12 rounded-full bg-clinical-blue text-white flex items-center justify-center hover:bg-blue-500 hover:scale-105 active:scale-95 transition-transform duration-200 shadow-lg focus:outline-none">
+                            <i class="fa-solid fa-play"></i>
+                        </button>
+                        <button id="btn-pause" class="w-10 h-10 rounded-full bg-slate-700 text-white flex items-center justify-center hover:bg-slate-600 hover:scale-105 active:scale-95 transition-transform duration-200 shadow-lg focus:outline-none self-center">
+                            <i class="fa-solid fa-pause"></i>
+                        </button>
+                        <button id="btn-skip" class="w-10 h-10 rounded-full bg-slate-700 text-white flex items-center justify-center hover:bg-slate-600 hover:scale-105 active:scale-95 transition-transform duration-200 shadow-lg focus:outline-none self-center">
+                            <i class="fa-solid fa-forward-step"></i>
+                        </button>
                     </div>
-                    <div class="flex flex-wrap gap-2" id="timer-subject-selector">
-                        <!-- Populated dynamically -->
+
+                    <div class="grid grid-cols-3 gap-2 w-full mb-6">
+                        <button id="mode-study" class="mode-btn text-xs py-2 px-1 rounded transition border text-clinical-blue bg-clinical-blue/10 border-clinical-blue/30">Guardia</button>
+                        <button id="mode-short-break" class="mode-btn text-xs py-2 px-1 rounded transition border text-slate-400 bg-slate-800 border-transparent hover:bg-slate-700">Descanso</button>
+                        <button id="mode-long-break" class="mode-btn text-xs py-2 px-1 rounded transition border text-slate-400 bg-slate-800 border-transparent hover:bg-slate-700">Pausa Larga</button>
                     </div>
-                </div>
+
+                    <!-- Subject Selector -->
+                    <div class="w-full">
+                        <div class="text-[10px] text-slate-400 uppercase mb-2 flex justify-between">
+                            <span>Materia Activa</span>
+                            <span id="active-subject-name" class="text-clinical-blue font-semibold">Ninguna</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2" id="timer-subject-selector">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <!-- MODULE: SPOTIFY AUDIO TERAPIA (OAUTH IMPLICIT FLOW) -->
-            <div class="glass-panel p-6 flex flex-col" id="spotify-module">
+            <div class="glass-panel p-6 flex flex-col flex-grow" id="spotify-module">
                 <h2 class="text-sm font-medium text-slate-300 mb-4 uppercase tracking-wide border-b border-slate-700 pb-2 flex justify-between items-center">
                     <span><i class="fa-brands fa-spotify mr-2 text-[#1DB954]"></i>Audio Terapia (Spotify)</span>
                 </h2>
                 
                 <!-- Unauthenticated State -->
-                <div id="spotify-unauth" class="flex flex-col items-center justify-center p-4 text-center gap-3">
+                <div id="spotify-unauth" class="flex flex-col items-center justify-center p-4 text-center gap-3 flex-grow">
                     <p class="text-xs text-slate-400">Conecta tu cuenta para sincronizar tus Playlists de concentración.</p>
                     <button id="btn-spotify-connect" class="bg-[#1DB954] hover:bg-[#1ed760] text-slate-950 font-bold px-4 py-2.5 rounded-full text-xs transition shadow-[0_0_15px_rgba(29,185,84,0.4)] flex items-center gap-2">
                         <i class="fa-brands fa-spotify text-base"></i> Conectar mi Spotify
@@ -242,7 +276,7 @@
                 </div>
 
                 <!-- Authenticated State -->
-                <div id="spotify-auth" class="hidden flex-col gap-3">
+                <div id="spotify-auth" class="hidden flex-col gap-3 flex-grow">
                     <div class="flex justify-between items-center text-xs text-slate-400">
                         <span class="font-medium text-slate-300">Tus Playlists:</span>
                         <button id="btn-spotify-logout" class="text-[10px] text-slate-500 hover:text-clinical-red transition">Desconectar</button>
@@ -254,23 +288,45 @@
                     </div>
 
                     <!-- Embed Iframe -->
-                    <div class="relative w-full rounded-xl overflow-hidden mt-1 border border-slate-700 bg-slate-950">
-                        <iframe id="spotify-player-iframe" src="about:blank" width="100%" height="152" frameborder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+                    <div class="relative w-full h-[350px] flex-grow rounded-xl overflow-hidden mt-1 border border-slate-700 bg-slate-950">
+                        <iframe id="spotify-player-iframe" src="about:blank" width="100%" height="350" class="w-full h-full" frameborder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
                     </div>
                 </div>
             </div>
+
+            <!-- MODULE 5: FERIADOS (GUARDIA PASIVA) -->
+            <section class="glass-panel p-5 flex flex-col relative overflow-hidden border-clinical-green/20 shrink-0" id="holiday-widget" style="border-color: rgba(16, 185, 129, 0.2);">
+                <div class="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-cyan-500/5 pointer-events-none"></div>
+                
+                <div class="flex items-center justify-between relative z-10 gap-3">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-10 h-10 rounded-full bg-slate-900 border border-slate-700 flex shrink-0 items-center justify-center text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.2)] text-base">
+                            <i class="fa-solid fa-mug-hot"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-[9px] uppercase tracking-widest text-emerald-500 font-bold mb-0.5">Guardia Pasiva</p>
+                            <p class="text-sm font-bold text-slate-200 truncate" id="holiday-name">Buscando expedientes...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="text-right shrink-0">
+                        <span class="text-sm font-mono text-cyan-400 font-bold block" id="holiday-countdown">-- días</span>
+                        <span class="text-xs text-slate-400 capitalize block" id="holiday-date">--</span>
+                    </div>
+                </div>
+            </section>
         </section>
 
         <!-- COLUMN 2: EVOLUCIONES & AGENDA -->
         <div class="lg:col-span-4 flex flex-col gap-6 h-full">
             <!-- MODULE 2: EVOLUCIONES (TO-DO) -->
-            <section class="glass-panel p-6 flex flex-col min-h-[500px] flex-grow">
+            <section class="glass-panel p-6 flex flex-col flex-1 min-h-[360px]">
                 <div class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2">
                     <h2 class="text-sm font-medium text-slate-300 uppercase tracking-wide"><i class="fa-solid fa-clipboard-user mr-2 text-clinical-blue"></i>Evoluciones (To-Do)</h2>
                     <button id="btn-clear-tasks" class="text-xs text-clinical-red hover:text-red-400 transition" title="Eliminar todas las tareas"><i class="fa-solid fa-trash-can"></i> Limpiar</button>
                 </div>
                 
-                <div class="flex-grow overflow-y-auto mb-4 pr-2" id="task-list">
+                <div class="flex-grow overflow-y-auto mb-4 pr-2 min-h-[160px] max-h-[260px]" id="task-list">
                     <!-- Tasks injected here -->
                 </div>
 
@@ -282,15 +338,19 @@
                             <i class="fa-solid fa-plus"></i>
                         </button>
                     </div>
-                    <label class="flex items-center gap-2 text-[10px] text-slate-400 cursor-pointer w-max">
-                        <input type="checkbox" id="task-pages-check" class="rounded border-slate-700 bg-slate-800 text-clinical-blue focus:ring-clinical-blue">
-                        ¿Usar contador de páginas en esta tarea?
+                    <label class="flex items-center gap-3 cursor-pointer select-none mt-1 w-max">
+                        <div class="relative inline-flex items-center">
+                            <input type="checkbox" id="task-pages-check" class="sr-only peer">
+                            <div class="w-8 h-4 bg-slate-800 border border-slate-700 rounded-full peer peer-checked:bg-clinical-blue/30 peer-checked:border-clinical-blue/60 transition-all"></div>
+                            <div class="absolute left-0.5 top-0.5 w-3 h-3 bg-slate-400 rounded-full transition-transform peer-checked:translate-x-4 peer-checked:bg-clinical-blue shadow-sm"></div>
+                        </div>
+                        <span class="text-[11px] text-slate-300 font-medium">¿Usar contador de páginas en esta tarea?</span>
                     </label>
                 </form>
             </section>
 
             <!-- MODULE: AGENDA DE GUARDIAS -->
-            <section class="glass-panel p-6 flex flex-col">
+            <section class="glass-panel p-6 flex flex-col flex-1 min-h-[360px]">
                 <h2 class="text-sm font-medium text-slate-300 uppercase tracking-wide mb-4 border-b border-slate-700 pb-2"><i class="fa-solid fa-calendar-days mr-2 text-clinical-blue"></i>Agenda de Guardias y Turnos</h2>
                 
                 <div id="calendar-setup" class="flex flex-col gap-2 mb-2">
@@ -303,8 +363,8 @@
                     </div>
                 </div>
 
-                <div id="calendar-view" class="hidden relative w-full h-[300px] rounded overflow-hidden border border-slate-700 bg-slate-900/80">
-                    <iframe id="calendar-iframe" class="absolute inset-0 w-full h-full" src="about:blank" frameborder="0" scrolling="no"></iframe>
+                <div id="calendar-view" class="hidden relative w-full flex-grow rounded overflow-hidden border border-slate-700 bg-slate-900/80 min-h-[220px]">
+                    <iframe id="calendar-iframe" class="absolute inset-0 w-full h-full dark-calendar-filter" src="about:blank" frameborder="0" scrolling="no"></iframe>
                     <button id="btn-edit-calendar" class="absolute top-2 right-2 bg-slate-800/80 hover:bg-slate-700 text-white w-6 h-6 rounded flex items-center justify-center transition border border-slate-600 shadow-md" title="Editar Calendario"><i class="fa-solid fa-pen text-[10px]"></i></button>
                 </div>
             </section>
@@ -338,10 +398,10 @@
             </section>
 
             <!-- MODULE 3: ANALÍTICAS -->
-            <section class="glass-panel p-6 flex flex-col flex-grow">
+            <section class="glass-panel p-6 flex flex-col">
                 <h2 class="text-sm font-medium text-slate-300 w-full mb-4 uppercase tracking-wide border-b border-slate-700 pb-2"><i class="fa-solid fa-chart-line mr-2 text-clinical-blue"></i>Monitor de Rendimiento</h2>
                 
-                <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="grid grid-cols-2 gap-4 mb-4">
                     <div class="bg-slate-800/40 p-3 rounded border border-slate-700/50">
                         <div class="text-[10px] text-slate-400 uppercase mb-1">Dosis (Pomos)</div>
                         <div class="text-2xl font-mono text-clinical-blue" id="stat-pomodoros">0</div>
@@ -352,11 +412,11 @@
                     </div>
                 </div>
 
-                <div class="relative w-full flex-grow flex items-center justify-center min-h-[150px] mb-6">
+                <div class="relative w-full h-44 mb-4 flex items-center justify-center">
                     <canvas id="subjectChart"></canvas>
                 </div>
                 
-                <div class="relative w-full min-h-[150px]">
+                <div class="relative w-full h-44">
                     <canvas id="weeklyChart"></canvas>
                 </div>
             </section>
@@ -498,15 +558,22 @@
                     <!-- Messages injected here -->
                 </div>
 
-                <!-- Input -->
-                <form id="peer-chat-form" class="flex border-t border-slate-700/80 bg-slate-900/60 p-2 gap-2 backdrop-blur-lg">
-                    <button type="button" id="btn-fuerzas" class="w-9 h-9 flex items-center justify-center rounded-lg bg-clinical-yellow text-slate-900 hover:bg-yellow-400 hover:scale-105 transition shadow-lg shrink-0 group relative" title="¡Enviar Fuerzas!">
-                        <i class="fa-solid fa-bolt"></i>
-                        <span class="absolute -top-8 bg-slate-800 text-clinical-yellow text-[9px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition whitespace-nowrap pointer-events-none">Fuerzas</span>
-                    </button>
-                    <input type="text" id="peer-chat-input" class="flex-grow min-w-0 bg-slate-800 border border-slate-700 text-white px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-clinical-blue transition-colors shadow-inner" placeholder="Escribir mensaje clínico..." autocomplete="off">
-                    <button type="submit" class="w-9 h-9 flex items-center justify-center rounded-lg bg-clinical-blue text-white hover:bg-blue-500 hover:scale-105 transition shadow-lg shrink-0"><i class="fa-solid fa-paper-plane"></i></button>
-                </form>
+                <!-- Input Area -->
+                <div class="flex flex-col gap-1.5 p-2 border-t border-slate-700/80 bg-slate-900/60 backdrop-blur-lg">
+                    <!-- Fuerzas Custom Input Strip -->
+                    <div class="flex items-center gap-1.5 bg-slate-950/80 px-2 py-1 rounded-lg border border-yellow-500/30">
+                        <button type="button" id="btn-fuerzas" class="w-6 h-6 flex items-center justify-center rounded bg-clinical-yellow text-slate-900 hover:bg-yellow-400 transition shadow shrink-0 font-bold text-xs" title="Enviar mensaje de Fuerzas">
+                            <i class="fa-solid fa-bolt"></i>
+                        </button>
+                        <input type="text" id="fuerzas-input" value="¡Fuerzas! 💪" class="flex-grow min-w-0 bg-transparent text-clinical-yellow text-[11px] font-medium focus:outline-none placeholder-yellow-500/40" placeholder="Escribe tu mensaje de fuerzas..." autocomplete="off">
+                    </div>
+
+                    <!-- Main Chat Form -->
+                    <form id="peer-chat-form" class="flex gap-2">
+                        <input type="text" id="peer-chat-input" class="flex-grow min-w-0 bg-slate-800 border border-slate-700 text-white px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-clinical-blue transition-colors shadow-inner" placeholder="Escribir mensaje clínico..." autocomplete="off">
+                        <button type="submit" class="w-9 h-9 flex items-center justify-center rounded-lg bg-clinical-blue text-white hover:bg-blue-500 hover:scale-105 transition shadow-lg shrink-0"><i class="fa-solid fa-paper-plane"></i></button>
+                    </form>
+                </div>
             </div>
 
             <!-- FAB Button -->
@@ -518,25 +585,6 @@
         </div>
 
     </main>
-
-    <!-- MODULE 5: FERIADOS (GUARDIA PASIVA) -->
-    <footer class="max-w-7xl mx-auto mt-6 glass-panel p-4 flex flex-col md:flex-row items-center justify-between border-clinical-green/20 relative overflow-hidden" id="holiday-widget" style="border-color: rgba(16, 185, 129, 0.2);">
-        <div class="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-cyan-500/5 pointer-events-none"></div>
-        <div class="relative z-10 flex items-center gap-4 w-full md:w-auto">
-            <div class="w-12 h-12 rounded-full bg-slate-900/80 border border-slate-700 flex shrink-0 items-center justify-center text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-                <i class="fa-solid fa-mug-hot text-xl"></i>
-            </div>
-            <div>
-                <h3 class="text-[10px] uppercase tracking-widest text-emerald-500 font-bold mb-1">Guardia Pasiva Programada</h3>
-                <p class="text-sm font-semibold text-slate-200" id="holiday-name">Buscando expedientes...</p>
-            </div>
-        </div>
-        <div class="relative z-10 flex flex-col md:text-right mt-4 md:mt-0 text-left w-full md:w-auto bg-slate-900/50 md:bg-transparent p-3 md:p-0 rounded-lg">
-            <span class="text-[10px] uppercase text-slate-400 mb-1">Paciente de alta en:</span>
-            <span class="text-xl font-mono text-cyan-400 font-bold tracking-tight" id="holiday-countdown">-- días</span>
-            <span class="text-xs text-slate-400 capitalize" id="holiday-date">--</span>
-        </div>
-    </footer>
 
     <!-- CONFIGURATION MODAL -->
     <div id="config-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
@@ -568,10 +616,16 @@
                 <div>
                     <h3 class="text-sm font-medium text-slate-300 uppercase tracking-wide mb-4 text-clinical-blue">Especialidades (Materias)</h3>
                     
-                    <form id="form-add-subject" class="flex gap-2 mb-4">
-                        <input type="text" id="cfg-subject-name" placeholder="Nueva materia..." required class="flex-grow bg-slate-800 border border-slate-600 rounded p-1.5 text-sm text-white">
-                        <input type="color" id="cfg-subject-color" value="#0ea5e9" class="w-8 h-8 rounded border border-slate-600 p-0 cursor-pointer bg-slate-800">
-                        <button type="submit" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-1 rounded text-sm"><i class="fa-solid fa-plus"></i></button>
+                    <form id="form-add-subject" class="flex flex-col gap-2 mb-4">
+                        <div class="flex gap-2">
+                            <input type="text" id="cfg-subject-name" placeholder="Nueva materia..." required class="flex-grow bg-slate-800 border border-slate-600 rounded p-1.5 text-sm text-white focus:outline-none focus:border-clinical-blue">
+                            <input type="hidden" id="cfg-subject-color" value="#0ea5e9">
+                            <button type="submit" class="bg-clinical-blue/20 text-clinical-blue border border-clinical-blue/50 hover:bg-clinical-blue hover:text-white px-3 py-1 rounded text-sm transition hover:scale-105 active:scale-95 duration-200"><i class="fa-solid fa-plus"></i></button>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] text-slate-400 uppercase">Color:</span>
+                            <div id="subject-color-palette" class="flex flex-wrap gap-1.5 p-1 bg-slate-800/80 rounded-lg border border-slate-700/60"></div>
+                        </div>
                     </form>
                     
                     <div id="cfg-subjects-list" class="space-y-2 max-h-40 overflow-y-auto pr-2">
@@ -597,7 +651,7 @@
     <script>
         // --- SPOTIFY OAUTH CONFIGURATION ---
         const SPOTIFY_CLIENT_ID = 'ad497e3e619f40189c3f77b4c189c3c7';
-        const SPOTIFY_REDIRECT_URI = 'https://agustin-silveira.github.io/clinical-focusV2/';
+        const SPOTIFY_REDIRECT_URI = window.location.href.split('#')[0];
 
         // --- INITIAL STATE & DEFAULT DATA ---
         const defaultSubjects = [
@@ -849,6 +903,16 @@
                 Chart.defaults.color = '#94a3b8';
                 Chart.defaults.font.family = 'Inter';
                 
+                const customTooltip = {
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    titleColor: '#ffffff',
+                    bodyColor: '#cbd5e1',
+                    borderColor: 'rgba(14, 165, 233, 0.4)',
+                    borderWidth: 1,
+                    padding: 10,
+                    cornerRadius: 8
+                };
+
                 const canvasSub = document.getElementById('subjectChart');
                 if (canvasSub) {
                     subjectChart = new Chart(canvasSub, {
@@ -856,8 +920,11 @@
                         data: getSubjectChartData(),
                         options: {
                             responsive: true, maintainAspectRatio: false,
-                            plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: {size: 10} } } },
-                            cutout: '75%', borderDarker: 0
+                            plugins: { 
+                                legend: { position: 'right', labels: { boxWidth: 10, font: {size: 10} } },
+                                tooltip: customTooltip
+                            },
+                            cutout: '80%'
                         }
                     });
                 }
@@ -869,13 +936,19 @@
                         data: {
                             labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
                             datasets: [{
-                                label: 'Minutos', data: state.stats.weeklyMinutes, backgroundColor: '#0ea5e9', borderRadius: 4
+                                label: 'Minutos', data: state.stats.weeklyMinutes, backgroundColor: '#0ea5e9', borderRadius: 6
                             }]
                         },
                         options: {
                             responsive: true, maintainAspectRatio: false,
-                            plugins: { legend: { display: false } },
-                            scales: { y: { beginAtZero: true, grid: { color: '#1e293b' } }, x: { grid: { display: false } } }
+                            plugins: { 
+                                legend: { display: false },
+                                tooltip: customTooltip
+                            },
+                            scales: { 
+                                y: { beginAtZero: true, grid: { display: false }, ticks: { font: { size: 10 } } }, 
+                                x: { grid: { display: false }, ticks: { font: { size: 10 } } } 
+                            }
                         }
                     });
                 }
@@ -890,7 +963,8 @@
                 datasets: [{
                     data: state.subjects.map(s => s.minutes),
                     backgroundColor: state.subjects.map(s => s.color),
-                    borderWidth: 0
+                    borderWidth: 0,
+                    borderRadius: 4
                 }]
             };
         }
@@ -1012,6 +1086,12 @@
             els.timerProgress.style.strokeDashoffset = prog;
             
             els.timerProgress.style.stroke = state.timer.mode === 'study' ? '#0ea5e9' : (state.timer.mode === 'short-break' ? '#10b981' : '#8b5cf6');
+
+            if (state.timer.isRunning) {
+                els.timerProgress.classList.add('timer-ring-active');
+            } else {
+                els.timerProgress.classList.remove('timer-ring-active');
+            }
 
             updatePiPCanvas();
             
@@ -1697,7 +1777,7 @@
             
             state.tasks.forEach((task, idx) => {
                 const div = document.createElement('div');
-                div.className = `flex items-center gap-3 p-3 mb-2 rounded border ${task.completed ? 'border-slate-800 bg-slate-900/40 task-completed' : 'border-slate-700 bg-slate-800/80'} transition-all`;
+                div.className = `flex items-center gap-3 p-3 mb-2 rounded border ${task.completed ? 'border-slate-800 bg-slate-900/40 task-completed' : 'border-slate-700 bg-slate-800/80'} transition-all animate-fade-in`;
                 
                 let pagesHtml = '';
                 if (task.hasPages) {
@@ -1844,17 +1924,20 @@
             els.configModal.classList.add('hidden');
         });
 
-        // --- HOLIDAYS LOGIC (Córdoba, Argentina) ---
+        // --- HOLIDAYS LOGIC (Argentina) ---
         const holidays = [
             { month: 1, day: 1, name: "Año Nuevo" },
-            { month: 3, day: 24, name: "Día Nac. de la Memoria por la Verdad y la Justicia" },
+            { month: 2, day: 16, name: "Carnaval" },
+            { month: 2, day: 17, name: "Carnaval" },
+            { month: 3, day: 24, name: "Día de la Memoria por la Verdad y la Justicia" },
             { month: 4, day: 2, name: "Día del Veterano y de los Caídos en Malvinas" },
+            { month: 4, day: 3, name: "Viernes Santo" },
             { month: 5, day: 1, name: "Día del Trabajador" },
             { month: 5, day: 25, name: "Día de la Revolución de Mayo" },
             { month: 6, day: 20, name: "Paso a la Inmortalidad del Gral. Manuel Belgrano" },
-            { month: 7, day: 6, name: "Fundación de Córdoba" },
             { month: 7, day: 9, name: "Día de la Independencia" },
-            { month: 9, day: 30, name: "Día de San Jerónimo" },
+            { month: 10, day: 12, name: "Día del Respeto a la Diversidad Cultural" },
+            { month: 11, day: 20, name: "Día de la Soberanía Nacional" },
             { month: 12, day: 8, name: "Inmaculada Concepción de María" },
             { month: 12, day: 25, name: "Navidad" }
         ];
@@ -2181,22 +2264,29 @@
         
         const PRESET_COLORS = {
             bg: ['#0f172a', '#171717', '#1e1b4b', '#064e3b', '#450a0a', '#1e293b'],
-            bubbles: ['#0ea5e9', '#10b981', '#f43f5e', '#8b5cf6', '#f59e0b', '#1e293b', '#475569', '#334155']
+            bubbles: [
+                '#0ea5e9', '#6ee7b7', '#a78bfa', '#f472b6', '#fb923c', '#bae6fd', '#fef08a',
+                '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#1e293b', '#475569'
+            ]
         };
 
         function renderPalette(containerId, inputEl, colorList, currentColor, type) {
             const container = document.getElementById(containerId);
+            if (!container || !inputEl) return;
             container.innerHTML = '';
             colorList.forEach(color => {
                 const btn = document.createElement('button');
+                btn.type = 'button';
                 btn.className = `w-5 h-5 rounded-full cursor-pointer transition-transform hover:scale-110 border-2 ${currentColor === color ? 'border-white scale-110 shadow-[0_0_8px_rgba(255,255,255,0.5)]' : 'border-transparent'}`;
                 btn.style.backgroundColor = color;
                 btn.addEventListener('click', () => {
                     inputEl.value = color;
-                    chatColors[type] = color;
-                    safeSet('cf_chatColors', chatColors);
-                    applyChatColors();
-                    renderPalette(containerId, inputEl, colorList, color, type); // Re-render to update selected border
+                    if (type && chatColors[type] !== undefined) {
+                        chatColors[type] = color;
+                        safeSet('cf_chatColors', chatColors);
+                        applyChatColors();
+                    }
+                    renderPalette(containerId, inputEl, colorList, color, type);
                 });
                 container.appendChild(btn);
             });
@@ -2221,12 +2311,36 @@
             peerEls.chatContainer.style.setProperty('--chat-me', chatColors.me);
             peerEls.chatContainer.style.setProperty('--chat-them', chatColors.them);
         }
-        
+
         applyChatColors();
         renderPalette('palette-bg', peerEls.colorBg, PRESET_COLORS.bg, chatColors.bg, 'bg');
         renderPalette('palette-me', peerEls.colorMe, PRESET_COLORS.bubbles, chatColors.me, 'me');
         renderPalette('palette-them', peerEls.colorThem, PRESET_COLORS.bubbles, chatColors.them, 'them');
+        renderPalette('subject-color-palette', document.getElementById('cfg-subject-color'), PRESET_COLORS.bubbles, '#0ea5e9', 'subjectColor');
 
+        // Target Pomodoros Custom Stepper Handlers
+        const targetDecBtn = document.getElementById('btn-target-dec');
+        const targetIncBtn = document.getElementById('btn-target-inc');
+        const targetDisplay = document.getElementById('target-pomodoros-display');
+        const targetInput = document.getElementById('target-pomodoros');
+
+        if(targetDecBtn && targetIncBtn && targetDisplay && targetInput) {
+            targetDecBtn.addEventListener('click', () => {
+                let val = parseInt(targetInput.value) || 4;
+                if(val > 1) {
+                    val--;
+                    targetInput.value = val;
+                    targetDisplay.textContent = val;
+                }
+            });
+            targetIncBtn.addEventListener('click', () => {
+                let val = parseInt(targetInput.value) || 4;
+                if(val < 12) {
+                    val++;
+                    targetInput.value = val;
+                    targetDisplay.textContent = val;
+                }
+            });
         // Settings events
         peerEls.btnChatSettings.addEventListener('click', () => {
             peerEls.chatSettingsPanel.classList.toggle('hidden');
@@ -2314,31 +2428,24 @@
         function showFuerzasToast(senderName, message) {
             playFuerzasSound();
             const toast = document.createElement('div');
-            toast.className = 'fixed top-1/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-slate-900/90 border border-clinical-yellow text-clinical-yellow px-6 py-4 rounded-2xl shadow-[0_0_30px_rgba(234,179,8,0.4)] z-[100] flex items-center gap-3 animate-bounce-in backdrop-blur-md';
-            toast.innerHTML = `<i class="fa-solid fa-bolt text-2xl animate-pulse"></i><div><p class="font-bold text-sm">¡${senderName} te manda Fuerzas! 💪</p><p class="text-[10px] text-slate-300">${message || '¡Sigue así, no te rindas!'}</p></div>`;
+            toast.className = 'fixed top-1/4 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-slate-900/90 border border-clinical-yellow text-clinical-yellow px-6 py-4 rounded-2xl shadow-[0_0_30px_rgba(234,179,8,0.4)] z-[100] flex items-center gap-3 animate-bounce-in backdrop-blur-md max-w-sm text-center';
+            toast.innerHTML = `<i class="fa-solid fa-bolt text-2xl animate-pulse shrink-0"></i><div><p class="font-bold text-sm">¡${senderName} te manda Fuerzas!</p><p class="text-xs text-slate-200 mt-1 font-medium">${message || '¡Sigue así, no te rindas!'}</p></div>`;
             document.body.appendChild(toast);
             
             setTimeout(() => {
                 toast.classList.add('opacity-0', 'scale-90', 'transition-all', 'duration-500');
                 setTimeout(() => toast.remove(), 500);
-            }, 3000);
+            }, 3500);
         }
 
         const btnFuerzas = document.getElementById('btn-fuerzas');
+        const fuerzasInput = document.getElementById('fuerzas-input');
         if (btnFuerzas) {
-            const frasesMotivacionales = [
-                "¡Un pomodoro menos para el final! ⏱️",
-                "¡Esa materia se aprueba! 📚",
-                "¡Excelente pase de guardia! 🩺",
-                "¡Signos vitales de estudio estables, a seguir! 📈",
-                "¡Café en vena y a continuar! ☕",
-                "¡Sigue así, futuro colega! 🌟",
-                "¡Diagnóstico: Éxito inminente! 🧠"
-            ];
-            
             btnFuerzas.addEventListener('click', () => {
                 if (!peerConnection || btnFuerzas.disabled) return;
                 
+                const customMsg = (fuerzasInput ? fuerzasInput.value.trim() : '') || '¡Fuerzas! 💪';
+
                 // Cooldown
                 btnFuerzas.disabled = true;
                 const originalHtml = btnFuerzas.innerHTML;
@@ -2346,9 +2453,8 @@
                 btnFuerzas.classList.add('opacity-50', 'cursor-not-allowed');
                 
                 const myName = peerEls.nameInput.value.trim() || 'Un colega';
-                const frase = frasesMotivacionales[Math.floor(Math.random() * frasesMotivacionales.length)];
                 
-                peerConnection.send({ type: 'fuerzas', sender: myName, message: frase });
+                peerConnection.send({ type: 'fuerzas', sender: myName, message: customMsg });
                 
                 setTimeout(() => {
                     btnFuerzas.disabled = false;
