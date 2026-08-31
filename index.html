@@ -39,6 +39,17 @@
         body {
             background-color: #0f172a;
             color: #cbd5e1;
+            min-height: 100vh;
+            overflow-x: hidden;
+            overscroll-behavior-y: none; /* Previene rebote nativo del scroll */
+        }
+        
+        #fixed-bg {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: -9999;
+            pointer-events: none;
             /* EKG Grid Background */
             background-image: 
                 linear-gradient(rgba(14, 165, 233, 0.05) 1px, transparent 1px),
@@ -47,8 +58,15 @@
                 linear-gradient(90deg, rgba(14, 165, 233, 0.02) 1px, transparent 1px);
             background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
             background-position: -1px -1px, -1px -1px, -1px -1px, -1px -1px;
-            min-height: 100vh;
-            overflow-x: hidden;
+            /* Hardware acceleration */
+            transform: translateZ(0);
+            will-change: transform;
+        }
+
+        /* Scroll Compositing para el grid principal */
+        main.max-w-7xl {
+            transform: translateZ(0);
+            will-change: transform;
         }
 
         :root {
@@ -57,12 +75,86 @@
         }
 
         .glass-panel {
-            background: var(--glass-panel-bg);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            position: relative;
             border-radius: 1rem;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 12px 35px 0 rgba(0, 0, 0, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.3);
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            background: transparent;
+            z-index: 1;
+            /* GPU Acceleration & Containment */
+            transform: translateZ(0);
+            will-change: transform, box-shadow;
+            contain: layout style paint;
+        }
+
+        .glass-panel::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background-color: var(--glass-panel-bg, rgba(15, 23, 42, 0.25));
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            z-index: -1;
+            pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            /* GPU Acceleration */
+            transform: translateZ(0);
+            will-change: backdrop-filter, background-color;
+        }
+        
+        .glass-panel > * {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* GPU-Accelerated Shadow Animation */
+        .glass-panel::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            box-shadow: 0 16px 45px 0 rgba(0, 0, 0, 0.25), inset 0 2px 2px 0 rgba(255, 255, 255, 0.45);
+            opacity: 0;
+            transition: opacity 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            pointer-events: none;
+            z-index: -1;
+            transform: translateZ(0);
+            will-change: opacity;
+        }
+
+        .glass-panel:hover::after, .wgt-dragging .glass-panel::after {
+            opacity: 1;
+        }
+        
+        .glass-panel:hover::before, .wgt-dragging .glass-panel::before {
+            background-color: var(--glass-panel-bg, rgba(15, 23, 42, 0.15));
+        }
+
+        /* Typography Reflow Prevention */
+        #timer-display, #remote-timer, #stat-pomodoros, #stat-hours {
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Ghost Events Block (Drag Performance) */
+        body.is-dragging-active * {
+            pointer-events: none !important;
+        }
+        body.is-dragging-active .wgt-dragging,
+        body.is-dragging-active .wgt-dragging * {
+            pointer-events: auto !important;
+        }
+
+        /* GPU Drop Performance Rule: Turn off heavy filters during D&D globally for the dragging element and columns */
+        body.is-dragging-active .wgt-dragging .glass-panel::before,
+        body.is-dragging-active .wgt-dragging .wgt-header,
+        body.is-dragging-active .wgt-column .glass-panel::before,
+        body.is-dragging-active .wgt-column .wgt-header {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            filter: none !important;
+            background: rgba(15, 23, 42, 0.85) !important;
         }
 
         .text-clinical-blue {
@@ -151,6 +243,7 @@
     </style>
 </head>
 <body class="p-4 md:p-8 font-sans" id="app-body">
+    <div id="fixed-bg"></div>
     
     <header class="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
@@ -439,7 +532,7 @@
                 </div>
 
                 <!-- Quick Access Bookmarks -->
-                <div class="flex overflow-x-auto gap-2 pb-1 mb-2" id="yt-bookmarks-container">
+                <div class="flex overflow-x-auto gap-3 py-3 px-1 mb-2" id="yt-bookmarks-container" style="transform-style: preserve-3d; will-change: transform;">
                     <!-- Bookmarks injected by JS -->
                 </div>
 
@@ -876,6 +969,25 @@
                             <option value="arcade">🎮 Arcade Blip (Retro Click)</option>
                             <option value="jazz">🎹 Tecla Piano Jazz (Soft Chord)</option>
                         </select>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- EMERGENCIA POMODORO -->
+            <div class="mt-8 pt-6 border-t border-slate-700">
+                <button type="button" id="btn-rescue-toggle" class="w-full bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/30 px-4 py-2.5 rounded-lg font-medium transition flex items-center justify-between group">
+                    <span><i class="fa-solid fa-life-ring mr-2"></i>Perdí mi pomodoro</span>
+                    <i class="fa-solid fa-chevron-down text-xs transition-transform duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] group-[.is-open]:rotate-180"></i>
+                </button>
+                <div id="rescue-panel" class="grid transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)]" style="grid-template-rows: 0fr; opacity: 0;">
+                    <div class="overflow-hidden min-h-0">
+                        <div class="bg-amber-500/5 border border-amber-500/20 p-4 rounded-b-lg flex flex-col gap-3 mt-1 shadow-inner">
+                            <label class="text-xs text-amber-200/80">¿Cuántos minutos te faltaban estudiar?</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="rescue-minutes" min="1" max="120" placeholder="Ej: 15" class="w-full bg-slate-800/80 border border-amber-500/30 rounded-lg px-3 py-2 text-sm text-amber-100 focus:outline-none focus:border-amber-500">
+                                <button type="button" id="btn-rescue-confirm" class="bg-amber-500 hover:bg-amber-400 text-slate-900 px-4 py-2 rounded-lg text-sm font-bold transition shadow-[0_0_15px_rgba(245,158,11,0.2)] shrink-0">Recuperar</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1326,7 +1438,7 @@
             ytBookmarks.forEach(bm => {
                 // Render Quick Access Chip
                 const chip = document.createElement('button');
-                chip.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 shadow-sm hover:scale-105 transition shrink-0';
+                chip.className = 'flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 shrink-0 backdrop-blur-[24px] backdrop-saturate-200 shadow-[0_4px_15px_rgba(0,0,0,0.15),inset_0_1px_1px_rgba(255,255,255,0.15)] hover:shadow-[0_8px_25px_rgba(0,0,0,0.25),inset_0_1px_2px_rgba(255,255,255,0.25)] transition-all duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] hover:-translate-y-1 hover:scale-[1.03]';
                 chip.innerHTML = `
                     ${bm.emoji ? `<span class="text-xs">${bm.emoji}</span>` : ''}
                     <span class="text-xs font-medium" style="color: ${bm.color || '#e2e8f0'}">${bm.name}</span>
@@ -1696,28 +1808,57 @@
             updateAudioTheme(mode);
         }
 
+        let currentClockText = "";
+        let currentClockStrokeOffset = "";
+        let currentClockColor = "";
+        let currentClockTitle = "";
+        let currentClockIsRunning = false;
+        
+        function renderClockLoop() {
+            let timeChanged = false;
+            if (els.timerDisplay.textContent !== currentClockText && currentClockText !== "") {
+                els.timerDisplay.textContent = currentClockText;
+                timeChanged = true;
+            }
+            if (els.timerProgress.style.strokeDashoffset !== currentClockStrokeOffset && currentClockStrokeOffset !== "") {
+                els.timerProgress.style.strokeDashoffset = currentClockStrokeOffset;
+            }
+            if (els.timerProgress.style.stroke !== currentClockColor && currentClockColor !== "") {
+                els.timerProgress.style.stroke = currentClockColor;
+            }
+            
+            if (currentClockIsRunning) {
+                if (!els.timerProgress.classList.contains('timer-ring-active')) els.timerProgress.classList.add('timer-ring-active');
+            } else {
+                if (els.timerProgress.classList.contains('timer-ring-active')) els.timerProgress.classList.remove('timer-ring-active');
+            }
+            
+            if (document.title !== currentClockTitle && currentClockTitle !== "") {
+                document.title = currentClockTitle;
+            }
+            
+            if (timeChanged) {
+                updatePiPCanvas();
+                if (typeof syncPopup === 'function') syncPopup();
+            }
+            
+            requestAnimationFrame(renderClockLoop);
+        }
+        
+        requestAnimationFrame(renderClockLoop);
+
         function updateTimerUI() {
-            const timeStr = formatTime(state.timer.timeLeft);
-            els.timerDisplay.textContent = timeStr;
+            currentClockText = formatTime(state.timer.timeLeft);
             
             const defaultMins = state.config.times[state.timer.mode === 'short-break' ? 'shortBreak' : (state.timer.mode === 'long-break' ? 'longBreak' : 'study')];
             const total = state.timer.totalTime || (defaultMins * 60);
             const fractionLeft = Math.max(0, Math.min(1, state.timer.timeLeft / total));
             const strokeOffset = (1 - fractionLeft) * 283;
             
-            els.timerProgress.style.strokeDashoffset = strokeOffset;
-            els.timerProgress.style.stroke = state.timer.mode === 'study' ? '#0ea5e9' : (state.timer.mode === 'short-break' ? '#10b981' : '#8b5cf6');
-
-            if (state.timer.isRunning) {
-                els.timerProgress.classList.add('timer-ring-active');
-            } else {
-                els.timerProgress.classList.remove('timer-ring-active');
-            }
-
-            updatePiPCanvas();
-            
-            document.title = `${timeStr} - ClinicalFocus`;
-            if (typeof syncPopup === 'function') syncPopup();
+            currentClockStrokeOffset = strokeOffset.toString();
+            currentClockColor = state.timer.mode === 'study' ? '#0ea5e9' : (state.timer.mode === 'short-break' ? '#10b981' : '#8b5cf6');
+            currentClockIsRunning = state.timer.isRunning;
+            currentClockTitle = `${currentClockText} - ClinicalFocus`;
         }
 
         function timerTick() {
@@ -1795,16 +1936,29 @@
                 const timeEl = popupWin.document.getElementById('popup-time');
                 const modeEl = popupWin.document.getElementById('popup-mode');
                 if (timeEl && els.timerDisplay) {
-                    timeEl.textContent = els.timerDisplay.textContent;
+                    if (timeEl.textContent !== els.timerDisplay.textContent) {
+                        timeEl.textContent = els.timerDisplay.textContent;
+                    }
                 }
                 if (modeEl) {
                     let modeTxt = state.timer.mode === 'study' ? 'EN GUARDIA' : 'EN DESCANSO';
                     if (!state.timer.isRunning) modeTxt += ' (PAUSADO)';
-                    modeEl.textContent = modeTxt;
-                    timeEl.style.color = state.timer.mode === 'study' ? '#38bdf8' : '#10b981';
+                    if (modeEl.textContent !== modeTxt) {
+                        modeEl.textContent = modeTxt;
+                    }
+                    
+                    const newColor = state.timer.mode === 'study' ? '#38bdf8' : '#10b981';
+                    if (timeEl.style.color !== newColor) {
+                        timeEl.style.color = newColor;
+                    }
                     
                     const screen = popupWin.document.getElementById('popup-screen');
-                    if(screen) screen.style.borderColor = state.timer.mode === 'study' ? '#0ea5e9' : '#10b981';
+                    if (screen) {
+                        const newBorder = state.timer.mode === 'study' ? '#0ea5e9' : '#10b981';
+                        if (screen.style.borderColor !== newBorder) {
+                            screen.style.borderColor = newBorder;
+                        }
+                    }
                 }
             }
         }
@@ -2607,6 +2761,50 @@
             }
         });
 
+        // --- EMERGENCY POMODORO RESCUE ---
+        const btnRescueToggle = document.getElementById('btn-rescue-toggle');
+        const rescuePanel = document.getElementById('rescue-panel');
+        const btnRescueConfirm = document.getElementById('btn-rescue-confirm');
+        const rescueMinutes = document.getElementById('rescue-minutes');
+
+        if (btnRescueToggle && rescuePanel) {
+            btnRescueToggle.addEventListener('click', () => {
+                const isOpen = btnRescueToggle.classList.toggle('is-open');
+                rescuePanel.style.gridTemplateRows = isOpen ? '1fr' : '0fr';
+                rescuePanel.style.opacity = isOpen ? '1' : '0';
+            });
+        }
+
+        if (btnRescueConfirm && rescueMinutes) {
+            btnRescueConfirm.addEventListener('click', () => {
+                let mins = parseInt(rescueMinutes.value);
+                if (isNaN(mins) || mins <= 0) {
+                    alert('Por favor ingresa una cantidad válida de minutos.');
+                    return;
+                }
+                
+                mins = Math.min(mins, 120);
+
+                if (state.timer.isRunning) stopTimer();
+                
+                state.timer.mode = 'study';
+                state.timer.timeLeft = mins * 60;
+                setTimerMode('study', true); // Ensure UI matches the study mode
+                state.timer.timeLeft = mins * 60; // setTimerMode might reset it, so set it again
+                
+                rescueMinutes.value = '';
+                btnRescueToggle.classList.remove('is-open');
+                rescuePanel.style.gridTemplateRows = '0fr';
+                rescuePanel.style.opacity = '0';
+                
+                toggleConfig(); 
+                
+                startTimer();
+                updateTimerDisplay();
+                updateStatsUI();
+            });
+        }
+
         els.btnSaveConfig.addEventListener('click', () => {
             state.config.times.study = parseInt(els.cfgTimes.study.value) || 50;
             state.config.times.shortBreak = parseInt(els.cfgTimes.short.value) || 5;
@@ -2650,21 +2848,21 @@
 
             // 2. Background Image
             const removeBtn = document.getElementById('btn-remove-bg-image');
+            const fixedBg = document.getElementById('fixed-bg');
             if (customBgImage) {
-                document.body.style.backgroundImage = `url("${customBgImage}")`;
-                document.body.style.backgroundSize = 'cover';
-                document.body.style.backgroundPosition = 'center';
-                document.body.style.backgroundAttachment = 'fixed';
+                fixedBg.style.backgroundImage = `url("${customBgImage}")`;
+                fixedBg.style.backgroundSize = 'cover';
+                fixedBg.style.backgroundPosition = 'center';
                 if (removeBtn) removeBtn.classList.remove('hidden');
             } else {
-                document.body.style.backgroundImage = `
+                fixedBg.style.backgroundImage = `
                     linear-gradient(rgba(14, 165, 233, 0.05) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(14, 165, 233, 0.05) 1px, transparent 1px),
                     linear-gradient(rgba(14, 165, 233, 0.02) 1px, transparent 1px),
                     linear-gradient(90deg, rgba(14, 165, 233, 0.02) 1px, transparent 1px)
                 `;
-                document.body.style.backgroundSize = '100px 100px, 100px 100px, 20px 20px, 20px 20px';
-                document.body.style.backgroundPosition = '-1px -1px, -1px -1px, -1px -1px, -1px -1px';
+                fixedBg.style.backgroundSize = '100px 100px, 100px 100px, 20px 20px, 20px 20px';
+                fixedBg.style.backgroundPosition = '-1px -1px, -1px -1px, -1px -1px, -1px -1px';
                 if (removeBtn) removeBtn.classList.add('hidden');
             }
 
@@ -3580,9 +3778,11 @@
         }
 
         function renderRemoteState(p) {
-            peerEls.remoteName.textContent = p.name || 'Colega';
+            const newName = p.name || 'Colega';
+            if (peerEls.remoteName.textContent !== newName) peerEls.remoteName.textContent = newName;
+            
             if (p.avatar && p.avatar.startsWith('data:image')) {
-                peerEls.remoteAvatarImg.src = p.avatar;
+                if (peerEls.remoteAvatarImg.src !== p.avatar) peerEls.remoteAvatarImg.src = p.avatar;
                 peerEls.remoteAvatarImg.classList.remove('hidden');
                 peerEls.remoteAvatarIcon.classList.add('hidden');
             } else {
@@ -3590,13 +3790,18 @@
                 peerEls.remoteAvatarIcon.classList.remove('hidden');
             }
 
-            peerEls.timer.textContent = formatTime(p.timeLeft);
-            peerEls.subject.textContent = p.subject;
-            peerEls.hours.textContent = p.hours;
+            const newTime = formatTime(p.timeLeft);
+            if (peerEls.timer.textContent !== newTime) peerEls.timer.textContent = newTime;
+            
+            if (peerEls.subject.textContent !== p.subject) peerEls.subject.textContent = p.subject;
+            
+            const newHours = String(p.hours);
+            if (peerEls.hours.textContent !== newHours) peerEls.hours.textContent = newHours;
             
             const total = Math.max(1, p.totalTime);
             const progPct = ((total - p.timeLeft) / total) * 100;
-            peerEls.progressBar.style.width = `${progPct}%`;
+            const newWidth = `${progPct}%`;
+            if (peerEls.progressBar.style.width !== newWidth) peerEls.progressBar.style.width = newWidth;
             
             const isStudy = p.mode === 'study';
             let modeTxt = isStudy ? 'EN GUARDIA' : 'EN DESCANSO';
@@ -3654,9 +3859,20 @@
             });
         });
         
-        // Broadcast heartbeat every second
+        // Broadcast heartbeat network throttling
+        let broadcastTicks = 0;
+        let lastBroadcastMode = null;
+        let lastBroadcastIsRunning = null;
         setInterval(() => {
-            broadcastState();
+            broadcastTicks++;
+            const phaseChanged = (state.timer.mode !== lastBroadcastMode) || (state.timer.isRunning !== lastBroadcastIsRunning);
+            
+            if (broadcastTicks >= 5 || phaseChanged) {
+                broadcastState();
+                broadcastTicks = 0;
+                lastBroadcastMode = state.timer.mode;
+                lastBroadcastIsRunning = state.timer.isRunning;
+            }
         }, 1000);
 
         // Initialize PeerJS
@@ -3829,15 +4045,14 @@
 /* ── Deep Glassmorphism Enhancement ─────────────────────────── */
 .wgt-wrap .glass-panel,
 .wgt-wrap > .glass-panel {
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid rgba(255,255,255,0.08);
   border-top: none;
   border-top-left-radius: 0;
   border-top-right-radius: 0;
-  box-shadow:
-    0 20px 40px rgba(0,0,0,0.4),
-    inset 0 -1px 0px rgba(0,0,0,0.2);
+}
+.wgt-wrap .glass-panel::before,
+.wgt-wrap > .glass-panel::before {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
 }
 
 /* ── Resizer ─────────────────────────────────────────────────── */
@@ -4060,6 +4275,28 @@
         let lastX = startX;
         let lastY = startY;
 
+        // --- GPU PERFORMANCE OPTIMIZATION: CACHE DOM RECTS ---
+        let cachedColumns = [];
+        let cachedWidgets = new Map();
+
+        function cacheDOMState() {
+          cachedColumns = columns.map(col => ({
+             el: col,
+             rect: col.getBoundingClientRect()
+          }));
+
+          columns.forEach(col => {
+            const widgets = Array.from(col.querySelectorAll(':scope > .wgt-wrap'))
+                                 .filter(w => w !== dragEl && !w.classList.contains('wgt-placeholder'));
+            
+            const widgetRects = widgets.map(w => ({
+              el: w,
+              rect: w.getBoundingClientRect()
+            }));
+            cachedWidgets.set(col, widgetRects);
+          });
+        }
+
         // Create ghost placeholder
         function createPlaceholder() {
           placeholder = document.createElement('div');
@@ -4071,6 +4308,11 @@
           dragEl.style.position = 'relative';
           dragEl.style.zIndex = '9999';
           dragEl.classList.add('wgt-dragging');
+          
+          // Disable heavy filters globally during drag
+          document.body.classList.add('is-dragging-active');
+          
+          cacheDOMState(); // Cache rects when drag officially starts
         }
 
         function removePlaceholder() {
@@ -4078,24 +4320,24 @@
             placeholder.parentNode.removeChild(placeholder);
             placeholder = null;
           }
+          document.body.classList.remove('is-dragging-active');
         }
         
         function getHoveredColumn(clientX, clientY) {
-            for (const col of columns) {
-                const rect = col.getBoundingClientRect();
-                // Add a little padding to the rect to make it easier to drop
+            for (const cache of cachedColumns) {
+                const rect = cache.rect;
                 if (clientX >= rect.left - 20 && clientX <= rect.right + 20 &&
                     clientY >= rect.top - 20 && clientY <= rect.bottom + 20) {
-                    return col;
+                    return cache.el;
                 }
             }
             return placeholder ? placeholder.closest('.wgt-column') : dragEl.closest('.wgt-column');
         }
 
         function getInsertionIndex(targetCol, clientY) {
-          const current = Array.from(targetCol.querySelectorAll(':scope > .wgt-wrap')).filter(w => w !== dragEl && !w.classList.contains('wgt-placeholder'));
+          const current = cachedWidgets.get(targetCol) || [];
           for (let i = 0; i < current.length; i++) {
-            const r = current[i].getBoundingClientRect();
+            const r = current[i].rect;
             const mid = r.top + r.height / 2;
             if (clientY < mid) return i;
           }
@@ -4123,8 +4365,10 @@
             if (!targetCol) return;
 
             const insertIdx = getInsertionIndex(targetCol, lastY);
-            const current = Array.from(targetCol.querySelectorAll(':scope > .wgt-wrap')).filter(w => w !== dragEl && !w.classList.contains('wgt-placeholder'));
-            const before = insertIdx < current.length ? current[insertIdx] : null;
+            
+            // Note: Since we are modifying the DOM, we need to find the actual element node for insertion.
+            const currentNodes = Array.from(targetCol.querySelectorAll(':scope > .wgt-wrap')).filter(w => w !== dragEl && !w.classList.contains('wgt-placeholder'));
+            const before = insertIdx < currentNodes.length ? currentNodes[insertIdx] : null;
 
             if (before && before !== placeholder) {
               targetCol.insertBefore(placeholder, before);
@@ -4140,6 +4384,9 @@
           dragEl.removeEventListener('pointercancel', onUp);
 
           if (raf) cancelAnimationFrame(raf);
+          document.body.classList.remove('is-dragging-active');
+          cachedColumns = [];
+          cachedWidgets.clear();
 
           if (!isDragging) return;
 
