@@ -174,7 +174,7 @@
         <section class="lg:col-span-4 flex flex-col gap-6 h-full">
             
             <!-- GAMIFICATION: PATIENT WARD -->
-            <div class="glass-panel p-6 relative overflow-hidden flex flex-col animate-breathing" id="patient-ward">
+            <div class="glass-panel p-6 relative overflow-hidden flex flex-col animate-breathing shrink-0" id="patient-ward">
                 <h2 class="text-sm font-medium text-slate-300 mb-4 uppercase tracking-wide border-b border-slate-700 pb-2">
                     <i class="fa-solid fa-bed-pulse mr-2 text-clinical-blue"></i>Sala de Urgencias (Retro)
                 </h2>
@@ -222,7 +222,7 @@
             </div>
 
             <!-- POMODORO TIMER PLACEHOLDER -->
-            <div id="pomodoro-placeholder" class="flex flex-col relative h-fit">
+            <div id="pomodoro-placeholder" class="flex flex-col relative h-fit shrink-0">
                 <div id="pomodoro-panel" class="glass-panel p-6 flex flex-col items-center justify-center transition-all duration-500 ease-in-out origin-bottom-left">
                     
                     <div class="relative w-56 h-56 flex justify-center items-center my-4">
@@ -293,7 +293,7 @@
             </div>
 
             <!-- MODULE: SPOTIFY AUDIO TERAPIA (OAUTH IMPLICIT FLOW) -->
-            <div class="glass-panel p-6 flex flex-col" id="spotify-module">
+            <div class="glass-panel p-6 flex flex-col shrink-0" id="spotify-module">
                 <h2 class="text-sm font-medium text-slate-300 mb-4 uppercase tracking-wide border-b border-slate-700 pb-2 flex justify-between items-center">
                     <span><i class="fa-brands fa-spotify mr-2 text-[#1DB954]"></i>Audio Terapia (Spotify)</span>
                 </h2>
@@ -319,8 +319,8 @@
                     </div>
 
                     <!-- Embed Iframe -->
-                    <div class="relative w-full h-[152px] rounded-xl overflow-hidden mt-1 border border-slate-700 bg-slate-950">
-                        <iframe id="spotify-player-iframe" src="about:blank" width="100%" height="152" class="w-full h-full" frameborder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
+                    <div class="relative w-full h-[152px] min-h-[152px] rounded-xl overflow-hidden mt-1 border border-slate-700 bg-slate-950 shrink-0">
+                        <iframe id="spotify-player-iframe" src="about:blank" width="100%" height="152" class="w-full h-[152px] min-h-[152px] border-0" frameborder="0" allowfullscreen="" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy"></iframe>
                     </div>
                 </div>
             </div>
@@ -2575,9 +2575,9 @@
                 });
             }
 
-            // Load last played playlist from localStorage if available
-            const lastPlaylistId = safeGet('cf_lastSpotifyPlaylist', null);
-            if (lastPlaylistId && iframe) {
+            // Load last played playlist from localStorage if available (or default to Deep Focus / Lofi Beats)
+            const lastPlaylistId = safeGet('cf_lastSpotifyPlaylist', '37i9dQZF1DWWQR0aw0UeB2');
+            if (iframe) {
                 iframe.src = `https://open.spotify.com/embed/playlist/${lastPlaylistId}?utm_source=generator&theme=0`;
             }
 
