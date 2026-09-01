@@ -85,7 +85,9 @@
             /* GPU Acceleration & Containment */
             transform: translateZ(0);
             will-change: transform, box-shadow;
-            contain: layout style paint;
+            /* Note: 'contain: paint' is NOT used here as it creates a stacking context
+               that would clip dragged widgets. 'layout style' is safe for our DOM. */
+            contain: layout style;
         }
 
         .glass-panel::before {
@@ -2092,6 +2094,10 @@
         // --- GAME (SALA DE URGENCIAS - PIXEL ART) ---
         function initGameUI() {
             if(state.game.active) {
+                if (state.game.currentPomos >= state.game.targetPomos) {
+                    dischargePatient();
+                    return;
+                }
                 els.gameSetup.classList.add('hidden');
                 els.patientCard.classList.remove('hidden');
                 els.patientCard.classList.add('flex');
@@ -2133,23 +2139,71 @@
             }
         });
 
+        function dischargePatient() {
+            // Immediately lock the game so no double-triggers occur
+            state.game.active = false;
+            
+            setTimeout(() => {
+                const cel = document.getElementById('celebration');
+                
+                // Joyful celebration animation
+                const originalHtml = cel.innerHTML;
+                cel.innerHTML = `
+                    <div class="flex flex-col items-center gap-4 px-8 py-6 rounded-2xl" style="background:rgba(15,23,42,0.8);backdrop-filter:blur(20px);border:1px solid rgba(16,185,129,0.3);">
+                        <i class="fa-solid fa-truck-medical text-6xl text-clinical-green mb-4 bounce" style="filter:drop-shadow(0 0 20px rgba(16,185,129,0.8))"></i>
+                        <h2 class="text-3xl font-bold text-white shadow-sm">¡PACIENTE ESTABILIZADO YEEI! 🎉</h2>
+                        <p class="text-clinical-green font-mono text-lg">Paciente #${state.game.patientId} recuperado al 100%</p>
+                        <p class="text-slate-400 text-sm">+500 EXP Clínico</p>
+                    </div>
+                `;
+                cel.style.display = 'flex';
+                cel.style.opacity = '1';
+                try {
+                    playMessageSound('ding');
+                } catch(e) {
+                    console.warn("Sound error", e);
+                }
+                
+                // Fade out and fully reset
+                setTimeout(() => {
+                    cel.style.transition = 'opacity 0.8s ease';
+                    cel.style.opacity = '0';
+                    setTimeout(() => {
+                        // Full state reset
+                        state.game = {
+                            active: false,
+                            targetPomos: state.game.targetPomos || 4,
+                            currentPomos: 0,
+                            patientId: null
+                        };
+                        
+                        // Reset animation
+                        if (typeof animState !== 'undefined') {
+                            animState.isAdmitting = false;
+                            animState.isWalking = false;
+                            animState.tomasX = -20;
+                        }
+                        
+                        // Restore celebration element for future use
+                        cel.innerHTML = originalHtml;
+                        cel.style.display = 'none';
+                        cel.style.opacity = '';
+                        cel.style.transition = '';
+                        
+                        saveState();
+                        initGameUI();
+                    }, 850);
+                }, 2500);
+            }, 500);
+        }
+
         function handleGameProgress() {
             if(!state.game.active) return;
             state.game.currentPomos++;
             updatePatientUI();
             
             if(state.game.currentPomos >= state.game.targetPomos) {
-                setTimeout(() => {
-                    const cel = document.getElementById('celebration');
-                    cel.style.display = 'flex';
-                    playSoftChime();
-                    setTimeout(() => {
-                        cel.style.display = 'none';
-                        state.game.active = false;
-                        saveState();
-                        initGameUI();
-                    }, 3000);
-                }, 500);
+                dischargePatient();
             }
         }
 
@@ -2159,7 +2213,11 @@
             els.patientHpText.textContent = `${Math.floor(pct)}%`;
             els.patientProgText.textContent = `${state.game.currentPomos} / ${state.game.targetPomos} Ciclos`;
             
-            if (pct < 40) {
+            if (pct >= 100) {
+                els.patientHpBar.className = 'h-full rounded-full health-bar-fill bg-clinical-green';
+                els.patientDiagnosis.textContent = '✓ APTO PARA EL ALTA';
+                els.patientDiagnosis.className = 'text-[10px] font-bold text-clinical-green font-mono mt-1 animate-pulse';
+            } else if (pct < 40) {
                 els.patientHpBar.className = 'h-full rounded-full health-bar-fill bg-clinical-red';
                 els.patientDiagnosis.textContent = 'ESTADO CRÍTICO';
                 els.patientDiagnosis.className = 'text-[10px] font-bold text-clinical-red font-mono mt-1';
