@@ -79,15 +79,17 @@
             border-radius: 1rem;
             border: 1px solid rgba(255, 255, 255, 0.1);
             box-shadow: 0 12px 35px 0 rgba(0, 0, 0, 0.35), inset 0 1px 1px 0 rgba(255, 255, 255, 0.3);
-            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            transition: box-shadow 0.4s cubic-bezier(0.25, 1, 0.5, 1), border-color 0.4s cubic-bezier(0.25, 1, 0.5, 1);
             background: transparent;
             z-index: 1;
-            /* GPU Acceleration & Containment */
-            transform: translateZ(0);
-            will-change: transform, box-shadow;
-            /* Note: 'contain: paint' is NOT used here as it creates a stacking context
-               that would clip dragged widgets. 'layout style' is safe for our DOM. */
+            /* Force independent GPU compositing layer */
+            transform: translate3d(0, 0, 0);
+            will-change: transform;
+            /* 'layout style' containment: blocks style recalcs from escaping the panel.
+               We intentionally skip 'paint' to preserve stacking context for drag z-index. */
             contain: layout style;
+            /* Skip rendering when fully off-screen, saving backdrop-filter cost */
+            content-visibility: auto;
         }
 
         .glass-panel::before {
@@ -100,12 +102,13 @@
             -webkit-backdrop-filter: blur(24px) saturate(180%);
             z-index: -1;
             pointer-events: none;
-            transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-            /* GPU Acceleration */
-            transform: translateZ(0);
-            will-change: backdrop-filter, background-color;
+            transition: background-color 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+            /* translate3d (not just translateZ) forces the backdrop into its own
+               rasterized GPU layer, preventing Meet overlay from invalidating it */
+            transform: translate3d(0, 0, 0);
+            will-change: transform;
         }
-        
+
         .glass-panel > * {
             position: relative;
             z-index: 2;
@@ -122,8 +125,18 @@
             transition: opacity 0.4s cubic-bezier(0.25, 1, 0.5, 1);
             pointer-events: none;
             z-index: -1;
-            transform: translateZ(0);
+            transform: translate3d(0, 0, 0);
             will-change: opacity;
+        }
+
+        /* Suppress all hover repaints while scrolling - pointer-events: none kills
+           :hover calculations which are the main GPU thrash source during scroll */
+        body.is-scrolling .glass-panel::after,
+        body.is-scrolling .glass-panel::before {
+            transition: none !important;
+        }
+        body.is-scrolling * {
+            pointer-events: none !important;
         }
 
         .glass-panel:hover::after, .wgt-dragging .glass-panel::after {
@@ -2954,6 +2967,21 @@
 
         // Apply immediately
         applyCustomAppearance();
+
+        // --- SCROLL GHOSTING (GPU Thrash Prevention) ---
+        // While the user scrolls, kill all pointer-events and transitions to prevent
+        // the browser computing :hover states on backdrop-filter panels every frame.
+        (function initScrollGhosting() {
+            let scrollTimer = null;
+            window.addEventListener('scroll', () => {
+                if (scrollTimer) clearTimeout(scrollTimer);
+                document.body.classList.add('is-scrolling');
+                scrollTimer = setTimeout(() => {
+                    document.body.classList.remove('is-scrolling');
+                    scrollTimer = null;
+                }, 150);
+            }, { passive: true, capture: true });
+        })();
 
         // Appearance Event Listeners
         const bgPicker = document.getElementById('cfg-bg-color');
