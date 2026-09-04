@@ -2872,24 +2872,26 @@
                 syncStatus.className = 'text-xs font-medium mt-3 text-center text-clinical-blue animate-pulse';
                 syncStatus.classList.remove('hidden');
                 
-                const conn = privateSyncPeer.connect(target);
+                const conn = privateSyncPeer.connect(target, { reliable: true });
                 conn.on('open', () => {
                     try {
                         const payload = {};
                         for (let i = 0; i < localStorage.length; i++) {
                             const key = localStorage.key(i);
                             if (key && (key.startsWith('cf_') || key === 'cf_widget_state_v2')) {
-                                payload[key] = localStorage.getItem(key);
+                                // Exclude base64 huge fields that crash WebRTC
+                                if (key !== 'cf_customBgImage' && key !== 'cf_peerAvatar') {
+                                    payload[key] = localStorage.getItem(key);
+                                }
                             }
                         }
                         conn.send({
                             type: 'sync_config',
                             sender: privateSyncPeer.id,
-                            payload: payload
+                            payload: JSON.stringify(payload)
                         });
                         syncStatus.textContent = '¡Datos enviados con éxito! Acepta la transferencia en el otro dispositivo.';
                         syncStatus.className = 'text-xs font-medium mt-3 text-center text-green-400';
-                        setTimeout(() => conn.close(), 3000);
                     } catch (e) {
                         syncStatus.textContent = 'Error al empaquetar datos: ' + e.message;
                         syncStatus.className = 'text-xs font-medium mt-3 text-center text-clinical-red';
@@ -2957,7 +2959,7 @@
                     if (data.type === 'sync_config') {
                         if (confirm('ATENCIÓN: El dispositivo (' + data.sender + ') quiere sincronizar sus datos. Esto SOBRESCRIBIRÁ toda tu configuración y estadísticas locales.\n\n¿Aceptar y recargar?')) {
                             try {
-                                const p = data.payload;
+                                const p = typeof data.payload === 'string' ? JSON.parse(data.payload) : data.payload;
                                 for (let key in p) {
                                     localStorage.setItem(key, p[key]);
                                 }
