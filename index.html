@@ -1700,29 +1700,47 @@
         function getSubjectChartData() {
             let dataArr = [];
 
-            if (activeChartPeriod === 'year' || !state.stats.history) {
+            if (!state.stats.history) {
+                // Fallback si no hay historial, se muestra el global histórico (all time)
                 dataArr = state.subjects.map(s => s.minutes);
             } else {
                 dataArr = state.subjects.map(s => {
                     let total = 0;
                     const today = new Date();
+                    
+                    // Fecha base en UTC (ya que los registros history se guardaron con toISOString)
+                    const todayUTCStr = today.toISOString().split('T')[0];
+                    const currentYear = parseInt(todayUTCStr.split('-')[0], 10);
+                    const currentMonth = parseInt(todayUTCStr.split('-')[1], 10);
+                    
+                    // Inicio de semana (Lunes) en la misma referencia de tiempo
+                    const todayDateUTC = new Date(todayUTCStr); 
+                    const dayOfWeek = todayDateUTC.getUTCDay(); // 0 = Domingo
+                    const diffToMonday = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
+                    const startOfWeekUTC = new Date(todayDateUTC);
+                    startOfWeekUTC.setUTCDate(todayDateUTC.getUTCDate() - diffToMonday);
+                    
                     const history = state.stats.history || {};
                     
                     for (const [dateStr, subjects] of Object.entries(history)) {
-                        const entryDate = new Date(dateStr);
-                        // Add timezone offset to fix JS date parsing of ISO strings
-                        entryDate.setMinutes(entryDate.getMinutes() + entryDate.getTimezoneOffset());
-                        
                         let inRange = false;
                         
                         if (activeChartPeriod === 'day') {
-                            inRange = (dateStr === today.toISOString().split('T')[0]);
+                            // Desde las 00:00 del día actual
+                            inRange = (dateStr === todayUTCStr);
                         } else if (activeChartPeriod === 'week') {
-                            const diff = (today - entryDate) / (1000 * 60 * 60 * 24);
-                            inRange = diff <= 7;
+                            // Desde el comienzo de esta semana (Lunes)
+                            const entryDate = new Date(dateStr);
+                            inRange = (entryDate >= startOfWeekUTC && entryDate <= todayDateUTC);
                         } else if (activeChartPeriod === 'month') {
-                            const diff = (today - entryDate) / (1000 * 60 * 60 * 24);
-                            inRange = diff <= 30;
+                            // Desde el comienzo del mes (Día 1)
+                            const entryYear = parseInt(dateStr.split('-')[0], 10);
+                            const entryMonth = parseInt(dateStr.split('-')[1], 10);
+                            inRange = (entryYear === currentYear && entryMonth === currentMonth);
+                        } else if (activeChartPeriod === 'year') {
+                            // Desde el 1 de Enero de este año
+                            const entryYear = parseInt(dateStr.split('-')[0], 10);
+                            inRange = (entryYear === currentYear);
                         }
                         
                         if (inRange && subjects[s.id]) {
