@@ -1201,6 +1201,8 @@
             state.achievements.totalHours = historicalMinutes / 60;
             state.achievements._migrated = true;
             saveState();
+            // Verificar logros después de que todo el JS esté inicializado
+            setTimeout(() => checkAchievements(), 500);
         }
         // -----------------------------------------------------------------------
 
@@ -3229,8 +3231,10 @@
             if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
         });
 
-        // Initialize modal content on page load
+        // Initialize modal content and check achievements on page load
         renderAchievementsModal();
+        // Always verify achievements on load (catches users who migrated before this fix)
+        setTimeout(() => checkAchievements(), 300);
 
         // --- CONFIGURATION MODAL ---
         els.btnConfig.addEventListener('click', () => {
