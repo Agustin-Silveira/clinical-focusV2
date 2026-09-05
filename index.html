@@ -765,7 +765,7 @@
 
     <!-- ACHIEVEMENTS MODAL -->
     <div id="achievements-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-        <div class="modal-glass w-full max-w-2xl rounded-xl p-6 relative max-h-[90vh] overflow-y-auto">
+        <div class="modal-glass w-full max-w-2xl rounded-xl p-6 relative max-h-[90vh] overflow-y-auto overscroll-contain">
             <button id="btn-close-achievements" class="absolute top-4 right-4 text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
             <h2 class="text-xl font-semibold text-white mb-1 flex items-center gap-2">🏅 Mi Vitrina de Logros</h2>
             <p class="text-xs text-slate-500 mb-5">Completa misiones para desbloquear medallas. Tus colegas pueden ver las 3 más altas.</p>
@@ -1165,7 +1165,16 @@
                 streak: 0,
                 lastStreakDate: null,
                 mildPatientsSaved: 0,
-                criticalPatientsSaved: 0
+                criticalPatientsSaved: 0,
+                patientsSaved: 0,
+                nightOwl: false,
+                marathon: false,
+                telemedicineHours: 0,
+                connectedFirstPeer: false,
+                juntaMedicaUnlocked: false,
+                defibrillatorUsed: false,
+                lateCancellations: 0,
+                perfectBreaksSequence: 0
             }),
             audio: { unlocked: false },
             youtubeId: safeGet('cf_youtubeId', null)
@@ -1797,56 +1806,40 @@
         // ACHIEVEMENT ENGINE
         // ============================================================
         const ACHIEVEMENT_DEFS = [
-            {
-                id: 'triage',
-                emoji: '🥉',
-                name: 'Triage Básico',
-                desc: 'Sobrevivir a tus primeras 10 horas de estudio total.',
-                check: (a) => a.totalHours >= 10
-            },
-            {
-                id: 'cafeina',
-                emoji: '☕',
-                name: 'Cafeína Endovenosa',
-                desc: 'Alcanzar 50 horas totales de concentración.',
-                check: (a) => a.totalHours >= 50
-            },
-            {
-                id: 'alta_express',
-                emoji: '🚀',
-                name: 'Alta Express',
-                desc: 'Salvar a 10 pacientes leves (configurados con 1 solo pomodoro).',
-                check: (a) => a.mildPatientsSaved >= 10
-            },
-            {
-                id: 'neurocirugia',
-                emoji: '🧠',
-                name: 'Neurocirujano de Hierro',
-                desc: 'Salvar a 5 pacientes críticos (configurados con 4 o más pomodoros).',
-                check: (a) => a.criticalPatientsSaved >= 5
-            },
-            {
-                id: 'burnout',
-                emoji: '🔥',
-                name: 'Síndrome de Burnout Evadido',
-                desc: 'Estudiar 5 días consecutivos sin fallar la racha.',
-                check: (a) => a.streak >= 5
-            },
-            {
-                id: 'zombie',
-                emoji: '🧟',
-                name: 'Residente Zombie',
-                desc: 'Acumular 100 horas de estudio en total.',
-                check: (a) => a.totalHours >= 100
-            },
-            {
-                id: 'jefe',
-                emoji: '👑',
-                name: 'Jefe de Guardia',
-                desc: 'Logro máximo: desbloquear todas las medallas anteriores.',
-                check: (a) => ['triage','cafeina','alta_express','neurocirugia','burnout','zombie'].every(id => a.unlockedIds.includes(id))
-            }
+            // Resistencia y Constancia
+            { id: 'triage', category: 'resistencia', emoji: '🥉', name: 'Triage Básico', desc: 'Sobrevivir a tus primeras 10 horas de estudio total.', rarity: 1, check: (a) => a.totalHours >= 10 },
+            { id: 'guardia_pasiva', category: 'resistencia', emoji: '⏱️', name: 'Guardia Pasiva', desc: 'Acumular 12 horas totales de estudio.', rarity: 1, check: a => a.totalHours >= 12 },
+            { id: 'silla_guardia', category: 'resistencia', emoji: '🪑', name: 'Silla de Guardia', desc: 'Acumular 24 horas totales.', rarity: 2, check: a => a.totalHours >= 24 },
+            { id: 'cafeina', category: 'resistencia', emoji: '☕', name: 'Cafeína Endovenosa', desc: 'Alcanzar 50 horas totales de concentración.', rarity: 2, check: (a) => a.totalHours >= 50 },
+            { id: 'zombie', category: 'resistencia', emoji: '🧟', name: 'Residente Zombie', desc: 'Acumular 100 horas de estudio en total.', rarity: 4, check: (a) => a.totalHours >= 100 },
+            { id: 'burnout', category: 'resistencia', emoji: '🔥', name: 'Burnout Evadido', desc: 'Estudiar 5 días consecutivos.', rarity: 2, check: (a) => a.streak >= 5 },
+            { id: 'mate_inyectable', category: 'resistencia', emoji: '🧉', name: 'Mate Inyectable', desc: 'Racha de 7 días consecutivos estudiando.', rarity: 3, check: a => a.streak >= 7 },
+            { id: 'turno_rotativo', category: 'resistencia', emoji: '📅', name: 'Turno Rotativo', desc: 'Racha de 30 días consecutivos.', rarity: 5, check: a => a.streak >= 30 },
+            { id: 'turno_noche', category: 'resistencia', emoji: '🦉', name: 'Turno Noche', desc: 'Estudiar entre las 2:00 AM y las 5:00 AM.', rarity: 3, check: a => a.nightOwl },
+            { id: 'maraton', category: 'resistencia', emoji: '🏃‍♂️', name: 'Maratón de Finales', desc: 'Estudiar más de 16 horas netas en un solo día.', rarity: 5, check: a => a.marathon },
+            
+            // Sala de Urgencias
+            { id: 'alta_express', category: 'urgencias', emoji: '🚀', name: 'Alta Express', desc: 'Salvar a 10 pacientes leves (1 pomodoro).', rarity: 1, check: (a) => a.mildPatientsSaved >= 10 },
+            { id: 'triaje_rapido', category: 'urgencias', emoji: '🩹', name: 'Triaje Rápido', desc: 'Curar a 10 pacientes leves.', rarity: 1, check: a => a.mildPatientsSaved >= 10 },
+            { id: 'ambulancia', category: 'urgencias', emoji: '🚑', name: 'Ambulancia a Tiempo', desc: 'Curar a 25 pacientes de cualquier tipo.', rarity: 2, check: a => (a.patientsSaved || 0) >= 25 },
+            { id: 'neurocirugia', category: 'urgencias', emoji: '🧠', name: 'Neurocirujano de Hierro', desc: 'Salvar a 5 pacientes críticos (4+ pomodoros).', rarity: 3, check: (a) => a.criticalPatientsSaved >= 5 },
+            { id: 'codigo_rojo', category: 'urgencias', emoji: '⚔️', name: 'Código Rojo', desc: 'Salvar a 10 pacientes críticos.', rarity: 4, check: a => a.criticalPatientsSaved >= 10 },
+            { id: 'director', category: 'urgencias', emoji: '🏥', name: 'Director del Hospital', desc: 'Curar a 100 pacientes en total.', rarity: 5, check: a => (a.patientsSaved || 0) >= 100 },
+
+            // Social e Interconsultas
+            { id: 'pase_sala', category: 'social', emoji: '🤝', name: 'Pase de Sala', desc: 'Establecer conexión exitosa con tu primer colega.', rarity: 1, check: a => a.connectedFirstPeer },
+            { id: 'junta_medica', category: 'social', emoji: '🗣️', name: 'Junta Médica', desc: 'Conectarte mientras estás conectado (2+ colegas).', rarity: 5, check: a => a.juntaMedicaUnlocked },
+            { id: 'telemedicina', category: 'social', emoji: '📡', name: 'Telemedicina', desc: 'Acumular 10h de estudio conectado con alguien.', rarity: 4, check: a => (a.telemedicineHours || 0) >= 10 },
+
+            // Easter Eggs
+            { id: 'desfibrilador', category: 'easteregg', emoji: '⚡', name: 'Desfibrilador', desc: 'Usar el botón "Perdí mi pomodoro" para recuperar tiempo.', rarity: 2, check: a => a.defibrillatorUsed },
+            { id: 'alta_voluntaria', category: 'easteregg', emoji: '🛑', name: 'Alta Voluntaria', desc: 'Cancelar un pomodoro cuando iba por más de la mitad.', rarity: 3, check: a => (a.lateCancellations || 0) > 0 },
+            { id: 'pausa_activa', category: 'easteregg', emoji: '🧘‍♂️', name: 'Pausa Activa', desc: 'Respetar descansos perfectamente 4 veces seguidas.', rarity: 4, check: a => (a.perfectBreaksSequence || 0) >= 4 },
+
+            // Max
+            { id: 'jefe', category: 'max', emoji: '👑', name: 'Jefe de Guardia', desc: 'Logro máximo: desbloquear todas las medallas.', rarity: 6, check: (a) => ['triage','guardia_pasiva','silla_guardia','cafeina','zombie','burnout','mate_inyectable','turno_rotativo','turno_noche','maraton','alta_express','triaje_rapido','ambulancia','neurocirugia','codigo_rojo','director','pase_sala','junta_medica','telemedicina','desfibrilador','alta_voluntaria','pausa_activa'].every(id => a.unlockedIds.includes(id)) }
         ];
+
 
         function checkAchievements() {
             const a = state.achievements;
@@ -1914,17 +1907,48 @@
             if (!grid) return;
             const unlocked = state.achievements.unlockedIds || [];
             grid.innerHTML = '';
-            ACHIEVEMENT_DEFS.forEach(def => {
-                const isUnlocked = unlocked.includes(def.id);
-                const card = document.createElement('div');
-                card.className = 'achievement-card' + (isUnlocked ? ' unlocked' : ' locked');
-                card.title = `${def.name}: ${def.desc}`;
-                card.innerHTML = `
-                    <div class="ach-emoji">${isUnlocked ? def.emoji : '🔒'}</div>
-                    <div class="ach-name">${def.name}</div>
-                    <div class="ach-desc">${def.desc}</div>
+            
+            // Render by category
+            const categories = [
+                { id: 'resistencia', name: 'Resistencia y Constancia', color: 'border-blue-500/50' },
+                { id: 'urgencias', name: 'Sala de Urgencias', color: 'border-red-500/50' },
+                { id: 'social', name: 'Social e Interconsultas', color: 'border-green-500/50' },
+                { id: 'easteregg', name: 'Mecánicas Ocultas', color: 'border-purple-500/50' },
+                { id: 'max', name: 'Logro Máximo', color: 'border-yellow-500/50' }
+            ];
+
+            // Reconfigure grid to display blocks instead of a single grid
+            grid.className = "flex flex-col gap-6";
+
+            categories.forEach(cat => {
+                const catDefs = ACHIEVEMENT_DEFS.filter(d => d.category === cat.id);
+                if (catDefs.length === 0) return;
+
+                const catContainer = document.createElement('div');
+                catContainer.innerHTML = `
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="h-[1px] flex-1 bg-slate-700/50"></div>
+                        <span class="text-xs font-bold uppercase tracking-widest text-slate-400">${cat.name}</span>
+                        <div class="h-[1px] flex-1 bg-slate-700/50"></div>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 cat-grid"></div>
                 `;
-                grid.appendChild(card);
+                const catGrid = catContainer.querySelector('.cat-grid');
+
+                catDefs.forEach(def => {
+                    const isUnlocked = unlocked.includes(def.id);
+                    const card = document.createElement('div');
+                    // Add subtle border colors to unlocked items based on category
+                    card.className = 'achievement-card ' + (isUnlocked ? `unlocked ${cat.color} bg-slate-800/60` : 'locked');
+                    card.title = `${def.name}: ${def.desc}`;
+                    card.innerHTML = `
+                        <div class="ach-emoji">${isUnlocked ? def.emoji : '🔒'}</div>
+                        <div class="ach-name">${def.name}</div>
+                        <div class="ach-desc">${def.desc}</div>
+                    `;
+                    catGrid.appendChild(card);
+                });
+                grid.appendChild(catContainer);
             });
             // Update stats panel
             const totalHrsEl = document.getElementById('ach-stat-hours');
@@ -2167,7 +2191,18 @@
         }
 
         // --- TIMER LOGIC ---
-        function setTimerMode(mode) {
+        function setTimerMode(mode, fromRescue = false) {
+            // Achievement: Alta Voluntaria (cancelled after >50%)
+            if (!fromRescue && state.timer.mode === 'study' && state.timer.isRunning && state.timer.totalTime > 0) {
+                if (state.timer.timeLeft < state.timer.totalTime / 2) {
+                    if (!state.achievements) state.achievements = { unlockedIds: [] };
+                    state.achievements.lateCancellations = (state.achievements.lateCancellations || 0) + 1;
+                    checkAchievements();
+                }
+                // Si rompe un pomodoro también rompe la racha de "Pausa Activa"
+                if (state.achievements) state.achievements.perfectBreaksSequence = 0;
+            }
+
             state.timer.mode = mode;
             state.timer.isRunning = false;
             clearInterval(state.timer.interval);
@@ -2292,6 +2327,22 @@
                         state.achievements.lastStreakDate = todayDateStr;
                     }
                     
+                    // Achievement: Night Owl
+                    const currentHour = today.getHours();
+                    if (currentHour >= 2 && currentHour < 5) {
+                        state.achievements.nightOwl = true;
+                    }
+                    
+                    // Achievement: Marathon
+                    if (state.stats.hoursToday >= 16) {
+                        state.achievements.marathon = true;
+                    }
+
+                    // Achievement: Telemedicina
+                    if (peerConnection && peerConnection.open) {
+                        state.achievements.telemedicineHours = (state.achievements.telemedicineHours || 0) + (1/60);
+                    }
+                    
                     checkAchievements();
                     saveState();
                     updateCharts();
@@ -2319,9 +2370,9 @@
             
             playPomodoroAlarm();
             
-            const prevMode = state.timer.mode;
+            const isNaturalComplete = state.timer.timeLeft === 0;
 
-            if (prevMode === 'study') {
+            if (state.timer.mode === 'study') {
                 state.stats.pomodorosToday++;
                 handleGameProgress();
                 saveState();
@@ -2335,8 +2386,15 @@
                     startTimer();
                 }
             } else {
+                if (!state.achievements) state.achievements = { unlockedIds: [] };
+                if (isNaturalComplete) {
+                    state.achievements.perfectBreaksSequence = (state.achievements.perfectBreaksSequence || 0) + 1;
+                    checkAchievements();
+                } else {
+                    state.achievements.perfectBreaksSequence = 0; // Skipped break
+                }
+                
                 setTimerMode('study');
-
                 if (state.config.autoStartPomodoros) {
                     startTimer();
                 }
@@ -2624,6 +2682,7 @@
                 } else if (state.game.targetPomos >= 4) {
                     state.achievements.criticalPatientsSaved = (state.achievements.criticalPatientsSaved || 0) + 1;
                 }
+                state.achievements.patientsSaved = (state.achievements.patientsSaved || 0) + 1;
                 checkAchievements();
                 dischargePatient();
             }
@@ -3223,12 +3282,17 @@
         document.getElementById('btn-achievements').addEventListener('click', () => {
             renderAchievementsModal();
             document.getElementById('achievements-modal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden'; // Lock body scroll
         });
         document.getElementById('btn-close-achievements').addEventListener('click', () => {
             document.getElementById('achievements-modal').classList.add('hidden');
+            document.body.style.overflow = ''; // Restore body scroll
         });
         document.getElementById('achievements-modal').addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
+            if (e.target === e.currentTarget) {
+                e.currentTarget.classList.add('hidden');
+                document.body.style.overflow = '';
+            }
         });
 
         // Initialize modal content and check achievements on page load
@@ -3256,6 +3320,7 @@
 
             renderConfigSubjects();
             els.configModal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
 
             // Inicializar Peer Privado de Sincronización
             const syncStatus = document.getElementById('sync-status');
@@ -3310,6 +3375,7 @@
 
         els.btnCloseConfig.addEventListener('click', () => {
             els.configModal.classList.add('hidden');
+            document.body.style.overflow = '';
             if (privateSyncPeer) {
                 privateSyncPeer.destroy();
                 privateSyncPeer = null;
@@ -3377,7 +3443,10 @@
                 
                 mins = Math.min(mins, 120);
 
-                if (state.timer.isRunning) stopTimer();
+                if (state.timer.isRunning) {
+                    clearInterval(state.timer.interval);
+                    state.timer.isRunning = false;
+                }
                 
                 state.timer.mode = 'study';
                 state.timer.timeLeft = mins * 60;
@@ -3389,8 +3458,13 @@
                 rescuePanel.style.gridTemplateRows = '0fr';
                 rescuePanel.style.opacity = '0';
                 
-                toggleConfig(); 
+                toggleConfig(); state.timer.activeSubjectId = null;
                 
+                // Achievement: Desfibrilador
+                if (!state.achievements) state.achievements = { unlockedIds: [] };
+                state.achievements.defibrillatorUsed = true;
+                checkAchievements();
+
                 startTimer();
                 updateTimerDisplay();
                 updateStatsUI();
@@ -3420,6 +3494,7 @@
             
             renderSubjectsUI();
             els.configModal.classList.add('hidden');
+            document.body.style.overflow = '';
         });
 
         // --- SYSTEM PERSONALIZATION & CUSTOM AESTHETICS ---
@@ -4269,9 +4344,17 @@
         }
 
         function setupPeerConnection(conn) {
-            if (peerConnection) {
+            // Achievements Social
+            if (!state.achievements) state.achievements = { unlockedIds: [] };
+            state.achievements.connectedFirstPeer = true;
+            
+            if (peerConnection && peerConnection.open) {
+                // If we are replacing an existing open connection, we had a "Junta Médica"!
+                state.achievements.juntaMedicaUnlocked = true;
                 peerConnection.close();
             }
+            checkAchievements();
+
             peerConnection = conn;
             
             // Guardar automáticamente el código de destino exitoso
@@ -4380,7 +4463,14 @@
                 patientHealth: state.game.health,
                 patientPhase: state.game.phase,
                 // Top 3 achievement badges for social display
-                badges: (state.achievements && state.achievements.unlockedIds) ? state.achievements.unlockedIds.slice(-3) : []
+                badges: (() => {
+                    if (!state.achievements || !state.achievements.unlockedIds) return [];
+                    return [...state.achievements.unlockedIds].sort((a,b) => {
+                        const rarityA = ACHIEVEMENT_DEFS.find(d=>d.id===a)?.rarity || 0;
+                        const rarityB = ACHIEVEMENT_DEFS.find(d=>d.id===b)?.rarity || 0;
+                        return rarityB - rarityA; // Descending order
+                    }).slice(0, 3);
+                })()
             };
 
             peerConnection.send({ type: 'state_sync', payload });
@@ -4393,9 +4483,8 @@
             // Render remote badges
             const remoteBadgesEl = document.getElementById('remote-badges');
             if (remoteBadgesEl && p.badges && Array.isArray(p.badges)) {
-                const BADGE_MAP = { triage:'🥉', cafeina:'☕', alta_express:'🚀', neurocirugia:'🧠', burnout:'🔥', zombie:'🧟', jefe:'👑' };
-                remoteBadgesEl.textContent = p.badges.map(id => BADGE_MAP[id] || '').join('');
-                remoteBadgesEl.title = p.badges.length ? 'Logros: ' + p.badges.map(id => BADGE_MAP[id] || id).join(' ') : '';
+                remoteBadgesEl.textContent = p.badges.map(id => { const def = ACHIEVEMENT_DEFS.find(d=>d.id===id); return def ? def.emoji : ''; }).join('');
+                remoteBadgesEl.title = p.badges.length ? 'Logros: ' + p.badges.map(id => { const def = ACHIEVEMENT_DEFS.find(d=>d.id===id); return def ? def.name : id; }).join(', ') : '';
             }
             
             if (p.avatar && p.avatar.startsWith('data:image')) {
