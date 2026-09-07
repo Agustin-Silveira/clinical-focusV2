@@ -3989,6 +3989,7 @@
         renderTasks();
         updateStatsUI();
         initGameUI();
+        setTimerMode(state.timer.mode || 'study'); // Inicializar el timer de forma segura al cargar
         // Update Holiday Widget periodically
         setInterval(initHolidayWidget, 1000 * 60 * 60);
 
