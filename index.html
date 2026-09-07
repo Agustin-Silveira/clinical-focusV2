@@ -1887,16 +1887,7 @@
             }
         }
 
-        function unlockAchievement(id) {
-            const a = state.achievements;
-            if (!a || a.unlockedIds.includes(id)) return;
-            const def = ACHIEVEMENT_DEFS.find(d => d.id === id);
-            if (!def) return;
-            a.unlockedIds.push(id);
-            showAchievementToast(def);
-            saveState();
-            renderAchievementsModal();
-        }
+
 
         function showAchievementToast(def) {
             const toast = document.createElement('div');
@@ -4612,6 +4603,16 @@
 
         // Initialize PeerJS
         setTimeout(initPeer, 1000);
+
+        // Gracefully close connection to avoid ghost peers
+        window.addEventListener('beforeunload', () => {
+            if (peerConnection && peerConnection.open) {
+                peerConnection.close();
+            }
+            if (peer) {
+                peer.destroy();
+            }
+        });
 
     </script>
 
