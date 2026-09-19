@@ -284,17 +284,424 @@
         .achievement-card .ach-desc { font-size: 10px; color: #64748b; line-height: 1.4; }
         .achievement-card.unlocked .ach-desc { color: #94a3b8; }
         /* ============================= */
+
+        /* ========= MODO ZEN =========== */
+        #zen-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9998;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            background: #070d18;
+            /* Clip-path starts at 0 - JS sets the origin to the clock position */
+            clip-path: circle(0% at 50% 50%);
+            pointer-events: none;
+            transition: clip-path 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #zen-overlay.zen-active {
+            clip-path: circle(150% at 50% 50%);
+            pointer-events: all;
+        }
+        /* --- Background dimming when transitioning --- */
+        body.zen-transitioning header,
+        body.zen-transitioning main > section:not(#col-1) {
+            opacity: 0 !important;
+            filter: blur(10px) !important;
+            transform: scale(0.97) !important;
+            pointer-events: none !important;
+            transition: opacity 0.8s ease, filter 0.8s ease, transform 0.8s ease !important;
+        }
+        body.zen-transitioning header {
+            transform: translateY(-12px) scale(0.98) !important;
+        }
+        body.zen-transitioning #col-1 > *:not(#spotify-module) {
+            opacity: 0 !important;
+            transition: opacity 0.6s ease 0.35s !important;
+        }
+        /* --- Staggered entry for zen elements --- */
+        #zen-mode-row,
+        #zen-clock-wrap,
+        #zen-controls-row,
+        #zen-extend-row,
+        #zen-subject-picker {
+            opacity: 0;
+            transition: opacity 0.7s ease, transform 0.8s cubic-bezier(0.34, 1.3, 0.64, 1);
+        }
+        #zen-mode-row    { transform: translateY(-14px); }
+        #zen-clock-wrap  { transform: scale(0.88); }
+        #zen-controls-row{ transform: translateY(14px); }
+        #zen-extend-row  { transform: translateY(10px); }
+        #zen-subject-picker { transform: translateX(-10px); }
+
+        #zen-overlay.zen-elements-in #zen-mode-row {
+            opacity: 1; transform: translateY(0); transition-delay: 0.25s;
+        }
+        #zen-overlay.zen-elements-in #zen-clock-wrap {
+            opacity: 1; transform: scale(1); transition-delay: 0.1s;
+        }
+        #zen-overlay.zen-elements-in #zen-controls-row {
+            opacity: 1; transform: translateY(0); transition-delay: 0.42s;
+        }
+        #zen-overlay.zen-elements-in #zen-extend-row {
+            opacity: 0.6; transform: translateY(0); transition-delay: 0.62s;
+        }
+        #zen-overlay.zen-elements-in #zen-subject-picker {
+            opacity: 1; transform: translateX(0); transition-delay: 0.35s;
+        }
+        /* Exit: quick fade for all elements */
+        #zen-overlay.zen-exiting #zen-mode-row,
+        #zen-overlay.zen-exiting #zen-clock-wrap,
+        #zen-overlay.zen-exiting #zen-controls-row,
+        #zen-overlay.zen-exiting #zen-extend-row,
+        #zen-overlay.zen-exiting #zen-subject-picker {
+            opacity: 0 !important;
+            transform: scale(0.95) !important;
+            transition: opacity 0.2s ease, transform 0.2s ease !important;
+        }
+        /* Subtle noise texture */
+        #zen-overlay::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+            pointer-events: none;
+            opacity: 0.6;
+        }
+        /* Breathing ambient glow */
+        #zen-glow {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            pointer-events: none;
+            transition: background 2s ease;
+            animation: zenBreath 8s ease-in-out infinite;
+        }
+        @keyframes zenBreath {
+            0%, 100% { transform: scale(0.9); opacity: 0.25; }
+            50% { transform: scale(1.1); opacity: 0.45; }
+        }
+        /* Floating orbs */
+        .zen-orb {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: zenFloat linear infinite;
+            opacity: 0;
+        }
+        @keyframes zenFloat {
+            0%   { transform: translateY(0px) scale(0.8); opacity: 0; }
+            15%  { opacity: 0.6; }
+            85%  { opacity: 0.4; }
+            100% { transform: translateY(-120vh) scale(1.1); opacity: 0; }
+        }
+        /* Clock ring breathing */
+        #zen-ring {
+            animation: zenRingPulse 4s ease-in-out infinite;
+        }
+        @keyframes zenRingPulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+        /* Progress arc */
+        #zen-progress-arc {
+            transition: stroke-dashoffset 1s linear, stroke 1.5s ease;
+        }
+        /* Timer text */
+        #zen-time {
+            font-size: clamp(2.4rem, 6vw, 3.8rem);
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 300;
+            letter-spacing: 0.05em;
+            color: #e2e8f0;
+            line-height: 1;
+            transition: color 1.5s ease;
+            text-shadow: 0 0 40px currentColor;
+        }
+        #zen-label {
+            font-size: clamp(0.55rem, 1.5vw, 0.75rem);
+            letter-spacing: 0.35em;
+            text-transform: uppercase;
+            color: #475569;
+            margin-top: 0.5rem;
+            transition: color 1.5s ease;
+            font-weight: 500;
+        }
+        /* Mode pills */
+        .zen-mode-btn {
+            padding: 0.4rem 1.1rem;
+            border-radius: 999px;
+            font-size: 0.65rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            font-weight: 600;
+            border: 1px solid transparent;
+            background: transparent;
+            color: #475569;
+            cursor: pointer;
+            transition: color 0.5s ease, border-color 0.5s ease, background 0.5s ease, transform 0.3s ease;
+        }
+        .zen-mode-btn:hover { color: #94a3b8; border-color: #334155; transform: scale(1.05); }
+        .zen-mode-btn.zen-active-mode {
+            background: rgba(255,255,255,0.05);
+            border-color: currentColor;
+        }
+        /* Control buttons */
+        .zen-ctrl-btn {
+            width: 3rem; height: 3rem;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+            color: #64748b;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem;
+            transition: color 0.4s ease, background 0.4s ease, border-color 0.4s ease, transform 0.3s ease;
+            backdrop-filter: blur(8px);
+        }
+        .zen-ctrl-btn.zen-play {
+            width: 4rem; height: 4rem;
+            font-size: 1.2rem;
+            background: rgba(255,255,255,0.07);
+            border-color: rgba(255,255,255,0.12);
+            color: #e2e8f0;
+        }
+        .zen-ctrl-btn:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.2); color: #e2e8f0; transform: scale(1.1); }
+        .zen-ctrl-btn:active { transform: scale(0.95); }
+        /* Extend time pills */
+        .zen-add-btn {
+            padding: 0.3rem 0.85rem;
+            border-radius: 999px;
+            font-size: 0.6rem;
+            letter-spacing: 0.1em;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.07);
+            color: #475569;
+            cursor: pointer;
+            transition: color 0.4s, background 0.4s, border-color 0.4s, transform 0.3s;
+        }
+        .zen-add-btn:hover { background: rgba(255,255,255,0.08); color: #94a3b8; border-color: rgba(255,255,255,0.15); transform: scale(1.07); }
+        /* Custom add-time form zen */
+        #zen-custom-form {
+            display: flex; align-items: center; gap: 0.3rem;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 999px;
+            padding: 0.2rem 0.5rem 0.2rem 0.7rem;
+            transition: border-color 0.3s;
+        }
+        #zen-custom-form:focus-within { border-color: rgba(255,255,255,0.18); }
+        #zen-custom-input {
+            width: 3rem;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-size: 0.6rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: #94a3b8;
+            text-align: center;
+        }
+        #zen-custom-input::placeholder { color: #334155; }
+        #zen-custom-submit {
+            width: 1.4rem; height: 1.4rem;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.06);
+            color: #64748b;
+            font-size: 0.5rem;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: color 0.3s, background 0.3s;
+        }
+        #zen-custom-submit:hover { color: #e2e8f0; background: rgba(255,255,255,0.12); }
+        /* Exit button */
+        #zen-exit {
+            position: absolute;
+            top: 1.5rem; right: 1.5rem;
+            background: none;
+            border: none;
+            color: #1e293b;
+            font-size: 0.65rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: color 0.4s ease;
+            font-family: inherit;
+        }
+        #zen-exit:hover { color: #475569; }
+        /* Divider line */
+        .zen-divider {
+            width: 1px;
+            height: 1.5rem;
+            background: rgba(255,255,255,0.07);
+        }
+        /* Subject picker */
+        #zen-subject-picker {
+            position: absolute;
+            top: 1.5rem;
+            left: 1.75rem;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        #zen-subject-label {
+            font-size: 0.55rem;
+            letter-spacing: 0.3em;
+            text-transform: uppercase;
+            color: #1e293b;
+            font-weight: 600;
+            transition: color 0.4s ease;
+            margin-bottom: 0.1rem;
+        }
+        #zen-subject-picker:hover #zen-subject-label {
+            color: #475569;
+        }
+        #zen-subject-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+        .zen-sub-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.3rem 0.65rem 0.3rem 0.45rem;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            background: transparent;
+            cursor: pointer;
+            font-size: 0.6rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            color: #1e293b;
+            transition: color 0.35s ease, background 0.35s ease, border-color 0.35s ease, transform 0.25s ease;
+            text-align: left;
+            white-space: nowrap;
+        }
+        #zen-subject-picker:hover .zen-sub-btn {
+            color: #334155;
+        }
+        .zen-sub-btn .zen-sub-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .zen-sub-btn:hover {
+            background: rgba(255,255,255,0.05);
+            border-color: rgba(255,255,255,0.08);
+            color: #94a3b8 !important;
+            transform: translateX(3px);
+        }
+        .zen-sub-btn:hover .zen-sub-dot {
+            transform: scale(1.4);
+        }
+        .zen-sub-btn.zen-sub-active {
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(255,255,255,0.1);
+            color: #e2e8f0 !important;
+        }
+        .zen-sub-btn.zen-sub-active .zen-sub-dot {
+            box-shadow: 0 0 8px currentColor;
+        }
+        /* ============================= */
     </style>
 </head>
 <body class="p-4 md:p-8 font-sans" id="app-body">
     <div id="fixed-bg"></div>
-    
+
+    <!-- ====== ZEN OVERLAY ====== -->
+    <div id="zen-overlay" role="dialog" aria-modal="true" aria-label="Modo Zen">
+        <!-- Ambient glow (color changes with mode) -->
+        <div id="zen-glow"></div>
+
+        <!-- Floating orbs (generated by JS) -->
+        <div id="zen-orbs"></div>
+
+        <!-- Exit button -->
+        <button id="zen-exit" aria-label="Salir del modo Zen">Salir · Esc</button>
+
+        <!-- Subject picker (top-left) -->
+        <div id="zen-subject-picker" aria-label="Selección de materia">
+            <div id="zen-subject-label">Materia</div>
+            <div id="zen-subject-list"></div>
+        </div>
+
+        <!-- Mode pills -->
+        <div id="zen-mode-row" style="display:flex;gap:0.4rem;margin-bottom:3rem;position:relative;z-index:1;">
+            <button class="zen-mode-btn" data-zen-mode="study">Guardia</button>
+            <span class="zen-divider" style="align-self:center;"></span>
+            <button class="zen-mode-btn" data-zen-mode="short-break">Descanso</button>
+            <span class="zen-divider" style="align-self:center;"></span>
+            <button class="zen-mode-btn" data-zen-mode="long-break">Pausa Larga</button>
+        </div>
+
+        <!-- Clock -->
+        <div id="zen-clock-wrap" style="position:relative;width:clamp(16rem,38vw,26rem);height:clamp(16rem,38vw,26rem);display:flex;align-items:center;justify-content:center;z-index:1;">
+            <svg id="zen-svg" style="position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);" viewBox="0 0 100 100">
+                <!-- Track -->
+                <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1.5"/>
+                <!-- Progress arc -->
+                <circle id="zen-progress-arc" cx="50" cy="50" r="44" fill="none" stroke="#0ea5e9" stroke-width="1.5"
+                    stroke-dasharray="276.5" stroke-dashoffset="0"
+                    stroke-linecap="round"/>
+                <!-- Outer decorative ring -->
+                <circle id="zen-ring" cx="50" cy="50" r="47" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="0.4"/>
+            </svg>
+            <!-- Time & label -->
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                <div id="zen-time">00:00</div>
+                <div id="zen-label">Guardia</div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div id="zen-controls-row" style="display:flex;align-items:center;gap:1.25rem;margin-top:3rem;position:relative;z-index:1;">
+            <button class="zen-ctrl-btn" id="zen-btn-pause" title="Pausar" aria-label="Pausar temporizador">
+                <i class="fa-solid fa-pause"></i>
+            </button>
+            <button class="zen-ctrl-btn zen-play" id="zen-btn-start" title="Iniciar" aria-label="Iniciar temporizador">
+                <i class="fa-solid fa-play"></i>
+            </button>
+            <button class="zen-ctrl-btn" id="zen-btn-skip" title="Adelantar" aria-label="Adelantar fase">
+                <i class="fa-solid fa-forward-step"></i>
+            </button>
+        </div>
+
+        <!-- Extend time -->
+        <div style="display:flex;align-items:center;gap:0.6rem;margin-top:2rem;position:relative;z-index:1;opacity:0.6;transition:opacity 0.3s;" id="zen-extend-row">
+            <button class="zen-add-btn" data-zen-add="5">+5 min</button>
+            <button class="zen-add-btn" data-zen-add="10">+10 min</button>
+            <form id="zen-custom-form" aria-label="Añadir minutos personalizados">
+                <input type="number" id="zen-custom-input" placeholder="min" min="1" max="180" aria-label="Minutos a añadir">
+                <button type="submit" id="zen-custom-submit" aria-label="Confirmar minutos"><i class="fa-solid fa-plus"></i></button>
+            </form>
+        </div>
+
+        <!-- Hover reveal for extend row -->
+        <style>
+            #zen-extend-row:hover { opacity: 1 !important; }
+        </style>
+    </div>
+    <!-- ====== END ZEN OVERLAY ====== -->
+
     <header class="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
             <h1 class="text-3xl font-semibold text-clinical-blue tracking-tight"><i class="fa-solid fa-staff-snake mr-2"></i>ClinicalFocus 3.0</h1>
             <p class="text-sm text-slate-400 mt-1 uppercase tracking-widest text-xs">Unidad de Cuidados Intensivos del Estudio</p>
         </div>
         <div class="flex gap-4 items-center">
+            <button id="btn-zen" class="text-slate-400 hover:text-sky-300 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50 transition flex items-center gap-1.5" title="Modo Zen" aria-label="Activar Modo Zen">
+                <i class="fa-solid fa-moon text-sm"></i>
+                <span class="text-xs font-medium hidden sm:inline">Zen</span>
+            </button>
             <button id="btn-achievements" class="text-slate-400 hover:text-yellow-400 bg-slate-800/50 p-2 rounded-lg border border-slate-700/50 transition" title="Vitrina de Logros">
                 🏅 Logros
             </button>
@@ -4614,6 +5021,316 @@
                 peer.destroy();
             }
         });
+
+        // ============================================================
+        // MODO ZEN — Minimalist Focus Mode
+        // ============================================================
+        (function initZenMode() {
+            const zenOverlay     = document.getElementById('zen-overlay');
+            const zenGlow        = document.getElementById('zen-glow');
+            const zenOrbs        = document.getElementById('zen-orbs');
+            const zenTime        = document.getElementById('zen-time');
+            const zenLabel       = document.getElementById('zen-label');
+            const zenArc         = document.getElementById('zen-progress-arc');
+            const zenBtnStart    = document.getElementById('zen-btn-start');
+            const zenBtnPause    = document.getElementById('zen-btn-pause');
+            const zenBtnSkip     = document.getElementById('zen-btn-skip');
+            const zenExit        = document.getElementById('zen-exit');
+            const zenCustomForm  = document.getElementById('zen-custom-form');
+            const zenCustomInput = document.getElementById('zen-custom-input');
+            const btnZen         = document.getElementById('btn-zen');
+            const zenSubjectList = document.getElementById('zen-subject-list');
+
+            let zenOpen = false;
+            let zenRAF  = null;
+
+            // Fallback palette per mode (used when no subject selected)
+            const ZEN_MODE_PALETTE = {
+                'study':       { arc: '#0ea5e9', time: '#bae6fd', orb: 'rgba(14,165,233,' },
+                'short-break': { arc: '#10b981', time: '#6ee7b7', orb: 'rgba(16,185,129,' },
+                'long-break':  { arc: '#8b5cf6', time: '#c4b5fd', orb: 'rgba(139,92,246,' },
+            };
+
+            const ZEN_LABELS_MAP = {
+                'study':       'Guardia',
+                'short-break': 'Descanso',
+                'long-break':  'Pausa Larga',
+            };
+
+            // --- Helper: get current accent color ---
+            function getZenAccent() {
+                const mode = state.timer.mode || 'study';
+                // Breaks always use their own distinct palette color, never the subject color
+                if (mode !== 'study') {
+                    return ZEN_MODE_PALETTE[mode].arc;
+                }
+                // Study mode: use active subject's color if available
+                const subId = state.timer.activeSubjectId;
+                if (subId) {
+                    const sub = state.subjects.find(s => s.id === subId);
+                    if (sub && sub.color) return sub.color;
+                }
+                return ZEN_MODE_PALETTE['study'].arc;
+            }
+
+            // Helper: hex to rgba
+            function hexToRgba(hex, a) {
+                let c = hex.replace('#','');
+                if (c.length === 3) c = c.split('').map(x=>x+x).join('');
+                const n = parseInt(c, 16);
+                return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+            }
+
+            // --- Orbs ---
+            function spawnOrbs() {
+                zenOrbs.innerHTML = '';
+                const color = getZenAccent();
+                for (let i = 0; i < 9; i++) {
+                    const orb = document.createElement('div');
+                    orb.classList.add('zen-orb');
+                    const size  = 2 + Math.random() * 4;
+                    const left  = 5 + Math.random() * 90;
+                    const delay = Math.random() * 18;
+                    const dur   = 18 + Math.random() * 22;
+                    orb.style.cssText = `width:${size}px;height:${size}px;left:${left}%;bottom:-${size}px;animation-delay:${delay}s;animation-duration:${dur}s;background:${hexToRgba(color, 0.5)}`;
+                    zenOrbs.appendChild(orb);
+                }
+            }
+
+            // --- Apply theme from subject / mode color ---
+            function zenApplyTheme() {
+                const color = getZenAccent();
+                const mode  = state.timer.mode || 'study';
+
+                // Glow
+                zenGlow.style.background = `radial-gradient(ellipse, ${hexToRgba(color, 0.14)} 0%, transparent 70%)`;
+                // Arc
+                zenArc.style.stroke = color;
+                // Text color (slightly lighter version via filter)
+                zenTime.style.color = color;
+                zenTime.style.filter = 'brightness(1.6)';
+                // Label
+                zenLabel.style.color = color;
+                zenLabel.style.filter = 'brightness(0.8)';
+
+                // Mode pills
+                document.querySelectorAll('.zen-mode-btn').forEach(b => {
+                    const active = b.dataset.zenMode === mode;
+                    b.classList.toggle('zen-active-mode', active);
+                    b.style.color = active ? color : '';
+                });
+
+                // Orb recolor
+                zenOrbs.querySelectorAll('.zen-orb').forEach(o => {
+                    o.style.background = hexToRgba(color, 0.5);
+                });
+
+                // Subject list highlight
+                document.querySelectorAll('.zen-sub-btn').forEach(b => {
+                    const active = b.dataset.subId === state.timer.activeSubjectId;
+                    b.classList.toggle('zen-sub-active', active);
+                    if (active) b.querySelector('.zen-sub-dot').style.boxShadow = `0 0 8px ${b.querySelector('.zen-sub-dot').style.background}`;
+                });
+            }
+
+            // --- Render subject picker ---
+            function renderZenSubjects() {
+                zenSubjectList.innerHTML = '';
+                state.subjects.forEach(sub => {
+                    const btn = document.createElement('button');
+                    btn.className = 'zen-sub-btn' + (sub.id === state.timer.activeSubjectId ? ' zen-sub-active' : '');
+                    btn.dataset.subId = sub.id;
+                    btn.setAttribute('aria-label', `Seleccionar ${sub.name}`);
+
+                    const dot = document.createElement('span');
+                    dot.className = 'zen-sub-dot';
+                    dot.style.background = sub.color;
+
+                    const name = document.createElement('span');
+                    name.textContent = sub.name;
+
+                    btn.appendChild(dot);
+                    btn.appendChild(name);
+
+                    btn.addEventListener('click', () => {
+                        state.timer.activeSubjectId = sub.id;
+                        if (typeof renderSubjectsUI === 'function') renderSubjectsUI();
+                        renderZenSubjects();
+                        zenApplyTheme();
+                        spawnOrbs();
+                    });
+
+                    zenSubjectList.appendChild(btn);
+                });
+            }
+
+            // --- Render loop ---
+            function zenRender() {
+                if (!zenOpen) return;
+
+                const mode     = state.timer.mode || 'study';
+                const timeLeft = state.timer.timeLeft || 0;
+                const cfgKey   = mode === 'short-break' ? 'shortBreak' : (mode === 'long-break' ? 'longBreak' : 'study');
+                const total    = state.timer.totalTime || ((state.config.times[cfgKey] || 25) * 60);
+                const frac     = total > 0 ? Math.max(0, Math.min(1, timeLeft / total)) : 0;
+
+                // Clock text
+                const m   = Math.floor(timeLeft / 60).toString().padStart(2,'0');
+                const s   = (timeLeft % 60).toString().padStart(2,'0');
+                const txt = `${m}:${s}`;
+                if (zenTime.textContent !== txt) zenTime.textContent = txt;
+
+                // Label
+                const lbl = ZEN_LABELS_MAP[mode] || 'Guardia';
+                if (zenLabel.textContent !== lbl) zenLabel.textContent = lbl;
+
+                // Arc progress (circumference = 2π×44 ≈ 276.5)
+                const offset = ((1 - frac) * 276.5).toFixed(2);
+                zenArc.style.strokeDashoffset = offset;
+
+                // Reactive theme when mode or subject changes
+                const trackKey = (mode) + '|' + (state.timer.activeSubjectId || '');
+                if (zenArc.dataset.trackKey !== trackKey) {
+                    zenArc.dataset.trackKey = trackKey;
+                    zenApplyTheme();
+                    spawnOrbs();
+                    renderZenSubjects();
+                }
+
+                // Start/Pause icon sync
+                if (state.timer.isRunning) {
+                    zenBtnStart.classList.add('hidden');
+                    zenBtnPause.classList.remove('hidden');
+                } else {
+                    zenBtnStart.classList.remove('hidden');
+                    zenBtnPause.classList.add('hidden');
+                }
+
+                zenRAF = requestAnimationFrame(zenRender);
+            }
+
+            // --- Open / Close ---
+            function openZen() {
+                // 1. Get the screen position of the real clock to use as clip-path origin
+                const clockEl = document.getElementById('clock-container');
+                const rect    = clockEl ? clockEl.getBoundingClientRect() : { left: window.innerWidth/2, top: window.innerHeight/2, width: 0, height: 0 };
+                const cx = Math.round(rect.left + rect.width / 2);
+                const cy = Math.round(rect.top  + rect.height / 2);
+
+                // 2. Set clip-path origin at clock center (no transition yet)
+                zenOverlay.style.transition = 'none';
+                zenOverlay.style.clipPath   = `circle(0% at ${cx}px ${cy}px)`;
+
+                // 3. Prep zen elements (invisible)
+                zenOverlay.classList.remove('zen-elements-in', 'zen-exiting');
+
+                // 4. Prepare content (set up theme before revealing)
+                renderZenSubjects();
+                zenApplyTheme();
+                spawnOrbs();
+                zenArc.dataset.trackKey = '';
+
+                // 5. Start background dimming immediately
+                document.body.classList.add('zen-transitioning');
+                document.body.style.overflow = 'hidden';
+
+                // 6. One rAF to let the browser register the starting clip-path
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        // Now enable transition and expand the circle
+                        zenOverlay.style.transition = 'clip-path 1.2s cubic-bezier(0.4, 0, 0.2, 1)';
+                        zenOverlay.style.clipPath   = `circle(150% at ${cx}px ${cy}px)`;
+                        zenOverlay.classList.add('zen-active');
+
+                        // 7. Stagger elements in after the circle is well underway (480ms in)
+                        setTimeout(() => {
+                            zenOverlay.classList.add('zen-elements-in');
+                        }, 480);
+
+                        // 8. Start render loop
+                        zenOpen = true;
+                        zenRAF  = requestAnimationFrame(zenRender);
+                        btnZen.classList.add('text-sky-300');
+                    });
+                });
+            }
+
+            function closeZen() {
+                // 1. Fade out elements first
+                zenOverlay.classList.add('zen-exiting');
+                zenOverlay.classList.remove('zen-elements-in');
+
+                // 2. Get clock position for collapsing back to it
+                const clockEl = document.getElementById('clock-container');
+                const rect    = clockEl ? clockEl.getBoundingClientRect() : { left: window.innerWidth/2, top: window.innerHeight/2, width: 0, height: 0 };
+                const cx = Math.round(rect.left + rect.width / 2);
+                const cy = Math.round(rect.top  + rect.height / 2);
+
+                // 3. After elements fade, collapse the circle back to the clock
+                setTimeout(() => {
+                    zenOverlay.style.transition = 'clip-path 1.0s cubic-bezier(0.4, 0, 0.2, 1)';
+                    zenOverlay.style.clipPath   = `circle(0% at ${cx}px ${cy}px)`;
+
+                    // Restore background simultaneously
+                    document.body.classList.remove('zen-transitioning');
+                }, 350);
+
+                // 4. After full close, clean up
+                setTimeout(() => {
+                    zenOpen = false;
+                    zenOverlay.classList.remove('zen-active', 'zen-exiting');
+                    zenOverlay.style.transition = '';
+                    zenOverlay.style.clipPath   = '';
+                    document.body.style.overflow = '';
+                    if (zenRAF) { cancelAnimationFrame(zenRAF); zenRAF = null; }
+                    btnZen.classList.remove('text-sky-300');
+                }, 1500);
+            }
+
+            // --- Controls ---
+            zenBtnStart.addEventListener('click', () => { if (typeof startTimer === 'function') startTimer(); });
+            zenBtnPause.addEventListener('click', () => {
+                clearInterval(state.timer.interval);
+                state.timer.isRunning = false;
+                if (typeof syncPopup === 'function') syncPopup();
+            });
+            zenBtnSkip.addEventListener('click', () => {
+                clearInterval(state.timer.interval);
+                state.timer.isRunning = false;
+                if (typeof completePhase === 'function') completePhase();
+                if (typeof syncPopup === 'function') syncPopup();
+            });
+
+            document.querySelectorAll('.zen-add-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const mins = parseInt(btn.dataset.zenAdd);
+                    if (typeof addExtraTime === 'function') addExtraTime(mins);
+                });
+            });
+            zenCustomForm.addEventListener('submit', e => {
+                e.preventDefault();
+                const v = parseInt(zenCustomInput.value);
+                if (v && v > 0 && typeof addExtraTime === 'function') {
+                    addExtraTime(v);
+                    zenCustomInput.value = '';
+                }
+            });
+
+            document.querySelectorAll('.zen-mode-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (typeof setTimerMode === 'function') setTimerMode(btn.dataset.zenMode);
+                });
+            });
+
+            btnZen.addEventListener('click', () => zenOpen ? closeZen() : openZen());
+            zenExit.addEventListener('click', closeZen);
+            document.addEventListener('keydown', e => {
+                if (e.key === 'Escape' && zenOpen) closeZen();
+            });
+        })();
+        // ============================================================
+        // END MODO ZEN
+        // ============================================================
 
     </script>
 
