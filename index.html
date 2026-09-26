@@ -1501,6 +1501,22 @@
 
             <!-- Input Area -->
             <div class="flex flex-col gap-1.5 p-2 border-t border-slate-700/80 bg-slate-900/60 backdrop-blur-lg">
+
+                <!-- Sticker Picker Panel -->
+                <div id="sticker-picker" class="hidden flex-col gap-2 bg-slate-950/80 p-2 rounded-xl border border-slate-700/60">
+                    <div class="flex items-center justify-between px-0.5">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1"><i class="fa-solid fa-images text-clinical-blue"></i> Mis Stickers</span>
+                        <label for="sticker-upload-input" class="cursor-pointer text-[10px] text-clinical-blue hover:text-blue-300 transition flex items-center gap-1 font-semibold select-none" title="Subir nueva imagen">
+                            <i class="fa-solid fa-plus-circle"></i> Agregar
+                        </label>
+                    </div>
+                    <input type="file" id="sticker-upload-input" accept="image/*" class="sr-only">
+                    <div id="sticker-grid" class="grid grid-cols-5 gap-1.5 max-h-28 overflow-y-auto pr-0.5 empty:hidden">
+                        <!-- Stickers injected here -->
+                    </div>
+                    <p id="sticker-empty-hint" class="text-[10px] text-slate-500 text-center py-2">Aún no tenés stickers. ¡Subí una imagen!</p>
+                </div>
+
                 <!-- Fuerzas Custom Input Strip -->
                 <div class="flex items-center gap-1.5 bg-slate-950/80 px-2 py-1 rounded-lg border border-yellow-500/30">
                     <button type="button" id="btn-fuerzas" class="w-6 h-6 flex items-center justify-center rounded bg-clinical-yellow text-slate-900 hover:bg-yellow-400 transition shadow shrink-0 font-bold text-xs" title="Enviar mensaje de Fuerzas">
@@ -1511,6 +1527,9 @@
 
                 <!-- Main Chat Form -->
                 <form id="peer-chat-form" class="flex gap-2">
+                    <button type="button" id="btn-sticker-toggle" class="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition shadow shrink-0" title="Stickers e imágenes">
+                        <i class="fa-solid fa-face-smile text-base"></i>
+                    </button>
                     <input type="text" id="peer-chat-input" class="flex-grow min-w-0 bg-slate-800 border border-slate-700 text-white px-3 py-2 rounded-lg text-xs focus:outline-none focus:border-clinical-blue transition-colors shadow-inner" placeholder="Escribir mensaje clínico..." autocomplete="off">
                     <button type="submit" class="w-9 h-9 flex items-center justify-center rounded-lg bg-clinical-blue text-white hover:bg-blue-500 hover:scale-105 transition shadow-lg shrink-0"><i class="fa-solid fa-paper-plane"></i></button>
                 </form>
@@ -4440,7 +4459,13 @@
             colorThem: document.getElementById('chat-color-them'),
             chatMessages: document.getElementById('peer-chat-messages'),
             chatForm: document.getElementById('peer-chat-form'),
-            chatInput: document.getElementById('peer-chat-input')
+            chatInput: document.getElementById('peer-chat-input'),
+            // Stickers
+            btnStickerToggle: document.getElementById('btn-sticker-toggle'),
+            stickerPicker: document.getElementById('sticker-picker'),
+            stickerGrid: document.getElementById('sticker-grid'),
+            stickerEmptyHint: document.getElementById('sticker-empty-hint'),
+            stickerUploadInput: document.getElementById('sticker-upload-input')
         };
 
         // Peer Setup Toggle Logic
@@ -4796,6 +4821,8 @@
                     renderRemoteState(data.payload);
                 } else if (data.type === 'chat') {
                     appendChatMessage(data.sender || 'Amigo', data.text, false);
+                } else if (data.type === 'image') {
+                    appendChatImage(data.sender || 'Amigo', data.dataUrl, false);
                 } else if (data.type === 'fuerzas') {
                     showFuerzasToast(data.sender || 'Amigo', data.message);
                     if (!isChatOpen) {
@@ -4840,6 +4867,142 @@
                 peerEls.chatInput.value = '';
             }
         });
+
+        // ─────────────────────────────────────────────
+        //  STICKERS & IMAGE SYSTEM
+        // ─────────────────────────────────────────────
+        const STICKERS_KEY = 'cf_stickers';
+
+        /** Load sticker list from localStorage */
+        function loadStickers() {
+            return safeParse(STICKERS_KEY, []);
+        }
+
+        /** Persist sticker list to localStorage */
+        function saveStickers(list) {
+            try { localStorage.setItem(STICKERS_KEY, JSON.stringify(list)); } catch(e) {}
+        }
+
+        /** Compress an image file/src to a JPEG dataURL at max 320px and 0.7 quality */
+        function compressImage(src, cb) {
+            const img = new Image();
+            img.onload = () => {
+                const MAX = 320;
+                let w = img.width, h = img.height;
+                if (w > h) { if (w > MAX) { h = Math.round(h * MAX / w); w = MAX; } }
+                else        { if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; } }
+                const canvas = document.createElement('canvas');
+                canvas.width = w; canvas.height = h;
+                canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                cb(canvas.toDataURL('image/jpeg', 0.72));
+            };
+            img.src = src;
+        }
+
+        /** Append an image bubble to the chat */
+        function appendChatImage(sender, dataUrl, isMe) {
+            const div = document.createElement('div');
+            div.className = `flex ${isMe ? 'justify-end' : 'justify-start'} animate-fade-in`;
+            const align = isMe ? 'items-end' : 'items-start';
+            div.innerHTML = `
+                <div class="flex flex-col gap-0.5 max-w-[70%] ${align}">
+                    <span class="text-[10px] font-semibold ${isMe ? 'text-right text-clinical-blue' : 'text-slate-400'} px-1">${sender}</span>
+                    <img src="${dataUrl}"
+                         class="rounded-xl shadow-lg border border-white/10 object-contain cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+                         style="max-width:100%; max-height:180px;"
+                         title="Sticker de ${sender}"
+                         loading="lazy">
+                </div>`;
+            peerEls.chatMessages.appendChild(div);
+            peerEls.chatMessages.scrollTo({ top: peerEls.chatMessages.scrollHeight, behavior: 'smooth' });
+
+            if (!isMe && !isChatOpen) {
+                unreadChatCount++;
+                updateChatBadge();
+                playPagerSound();
+            }
+        }
+
+        /** Send a sticker/image to the connected peer and show it locally */
+        function sendImageSticker(dataUrl) {
+            if (!peerConnection || !peerConnection.open) return;
+            const myName = peerEls.nameInput.value.trim() || 'Yo';
+            peerConnection.send({ type: 'image', dataUrl, sender: myName });
+            appendChatImage(myName, dataUrl, true);
+            // Close picker after sending
+            closeStickerPicker();
+        }
+
+        /** Render the sticker grid from localStorage */
+        function renderStickerGrid() {
+            const stickers = loadStickers();
+            peerEls.stickerGrid.innerHTML = '';
+
+            if (stickers.length === 0) {
+                peerEls.stickerEmptyHint.classList.remove('hidden');
+                return;
+            }
+            peerEls.stickerEmptyHint.classList.add('hidden');
+
+            stickers.forEach((s) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'relative group w-full aspect-square rounded-lg overflow-hidden border border-white/10 hover:border-clinical-blue hover:scale-105 active:scale-95 transition-all bg-slate-800';
+                btn.title = 'Enviar sticker';
+                btn.innerHTML = `
+                    <img src="${s.dataUrl}" class="w-full h-full object-cover" loading="lazy">
+                    <span class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-lg">📤</span>`;
+                btn.addEventListener('click', () => sendImageSticker(s.dataUrl));
+                peerEls.stickerGrid.appendChild(btn);
+            });
+        }
+
+        /** Open/close the sticker picker panel */
+        let isStickerPickerOpen = false;
+
+        function openStickerPicker() {
+            isStickerPickerOpen = true;
+            renderStickerGrid();
+            peerEls.stickerPicker.classList.remove('hidden');
+            peerEls.stickerPicker.classList.add('flex');
+            peerEls.btnStickerToggle.classList.add('text-clinical-blue', 'bg-slate-600');
+        }
+
+        function closeStickerPicker() {
+            isStickerPickerOpen = false;
+            peerEls.stickerPicker.classList.add('hidden');
+            peerEls.stickerPicker.classList.remove('flex');
+            peerEls.btnStickerToggle.classList.remove('text-clinical-blue', 'bg-slate-600');
+        }
+
+        // Toggle sticker picker on button click
+        peerEls.btnStickerToggle.addEventListener('click', () => {
+            isStickerPickerOpen ? closeStickerPicker() : openStickerPicker();
+        });
+
+        // Upload new sticker from file input
+        peerEls.stickerUploadInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                compressImage(ev.target.result, (dataUrl) => {
+                    const stickers = loadStickers();
+                    // Avoid duplicates (same file can be added twice — allow; same dataUrl won't break things)
+                    stickers.push({ id: Date.now(), dataUrl });
+                    saveStickers(stickers);
+                    renderStickerGrid();
+                    // Auto-send the newly uploaded image
+                    sendImageSticker(dataUrl);
+                });
+            };
+            reader.readAsDataURL(file);
+            // Reset so the same file can be re-uploaded
+            e.target.value = '';
+        });
+
+        // Initial render (in case picker was left open by state)
+        renderStickerGrid();
 
         function updatePeerUI(status) {
             if (status === 'standby') {
