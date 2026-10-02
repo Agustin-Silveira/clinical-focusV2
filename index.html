@@ -4708,7 +4708,16 @@
                 safeSet('cf_myPeerId', savedId);
 
                 peer = new Peer(savedId, {
-                    debug: 1
+                    debug: 1,
+                    config: {
+                        iceServers: [
+                            { urls: 'stun:stun.l.google.com:19302' },
+                            { urls: 'stun:stun1.l.google.com:19302' },
+                            { urls: 'stun:stun2.l.google.com:19302' },
+                        ],
+                        iceTransportPolicy: 'all',
+                    },
+                    pingInterval: 5000, // keep signaling server alive
                 });
 
                 peer.on('open', (id) => {
@@ -4731,8 +4740,23 @@
                 });
                 
                 peer.on('disconnected', () => {
-                    updatePeerLed();
+                    // Re-connect to the signaling server
                     peer.reconnect();
+                    // After reconnecting, wait briefly then re-establish data channels
+                    // with all peers we were connected to (they are dropped on disconnect)
+                    setTimeout(() => {
+                        const previousPeers = [...peerConnections.keys()];
+                        // Clear the old broken connections
+                        peerConnections.forEach((conn) => { try { conn.close(); } catch(e) {} });
+                        peerConnections.clear();
+                        // Reconnect to each one
+                        previousPeers.forEach((pid) => {
+                            try {
+                                const conn = peer.connect(pid, { reliable: true });
+                                conn.on('open', () => setupPeerConnection(conn));
+                            } catch(e) {}
+                        });
+                    }, 1500);
                 });
 
                 peer.on('error', (err) => {
@@ -4834,7 +4858,7 @@
 
             if (peerConnections.has(peerId)) {
                 const old = peerConnections.get(peerId);
-                if (old.open) old.close();
+                try { if (old.open) old.close(); } catch(e) {}
                 const oldCard = document.getElementById(`peer-card-${peerId}`);
                 if (oldCard) oldCard.remove();
             }
@@ -4852,7 +4876,40 @@
 
             broadcastState();
 
+            // ── Keepalive ping (prevents idle WebRTC channel drop) ──────────
+            // Send a lightweight ping every 20s. The other side ignores pings.
+            const keepaliveTimer = setInterval(() => {
+                if (conn.open) {
+                    try { conn.send({ type: 'ping' }); } catch(e) {}
+                } else {
+                    clearInterval(keepaliveTimer);
+                }
+            }, 20000);
+
+            // ── Watchdog: detect silent drops (no 'close' event fired) ──────
+            // Every 15s check if the connection is still truly open.
+            // If it's gone and the card is still in the DOM, trigger reconnect.
+            const watchdogTimer = setInterval(() => {
+                if (!conn.open && peerConnections.get(peerId) === conn) {
+                    clearInterval(watchdogTimer);
+                    clearInterval(keepaliveTimer);
+                    // Silently try to reconnect
+                    const savedState = remoteStates.get(peerId);
+                    const name = (savedState && savedState.name) ? savedState.name : 'Colega';
+                    removePeerCard(peerId);
+                    appendChatMessage('Sistema', `Reconectando con ${name}...`, false);
+                    try {
+                        const newConn = peer.connect(peerId, { reliable: true });
+                        newConn.on('open', () => setupPeerConnection(newConn));
+                        newConn.on('error', () => {
+                            appendChatMessage('Sistema', `No se pudo reconectar con ${name}`, false);
+                        });
+                    } catch(e) {}
+                }
+            }, 15000);
+
             conn.on('data', (data) => {
+                if (data.type === 'ping') return; // ignore keepalive pings
                 if (data.type === 'state_sync') {
                     remoteStates.set(peerId, data.payload);
                     renderRemoteState(peerId, data.payload);
@@ -4870,6 +4927,8 @@
             });
 
             conn.on('close', () => {
+                clearInterval(keepaliveTimer);
+                clearInterval(watchdogTimer);
                 const savedState = remoteStates.get(peerId);
                 const name = (savedState && savedState.name) ? savedState.name : peerId;
                 removePeerCard(peerId);
@@ -4877,6 +4936,8 @@
             });
 
             conn.on('error', (err) => {
+                clearInterval(keepaliveTimer);
+                clearInterval(watchdogTimer);
                 console.error(`Peer ${peerId} error:`, err);
                 removePeerCard(peerId);
             });
