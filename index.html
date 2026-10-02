@@ -1124,44 +1124,9 @@
                     </div>
                 </div>
 
-                <!-- Connected Peer Monitor -->
-                <div id="remote-peer-card" class="hidden flex-col gap-2 mt-2 pt-4 border-t border-slate-700/50">
-                    <div class="flex justify-between items-center">
-                        <div class="flex items-center gap-2">
-                            <img id="remote-avatar-img" class="w-6 h-6 rounded-full object-cover border border-slate-600 hidden" alt="Avatar del Colega">
-                            <i id="remote-avatar-icon" class="fa-solid fa-user-doctor text-slate-400"></i>
-                            <span id="remote-name" class="text-xs font-bold text-white truncate max-w-[100px]">Colega</span>
-                            <span id="remote-badges" class="text-sm tracking-widest ml-1" title="Logros del colega"></span>
-                        </div>
-                        <div class="text-xs font-mono font-bold" id="remote-timer">00:00</div>
-                    </div>
-                    
-                    <div class="flex justify-between items-center mt-1">
-                        <div class="text-[10px] bg-clinical-blue/20 text-clinical-blue px-2 py-0.5 rounded border border-clinical-blue/30" id="remote-subject">Sin Materia</div>
-                        <div class="text-[10px] text-slate-400"><span id="remote-hours" class="text-clinical-green font-semibold">0.0</span> hrs hoy</div>
-                    </div>
-                    
-                    <div class="w-full bg-slate-800 rounded-full h-1.5 border border-slate-700 mt-1">
-                        <div id="remote-progress-bar" class="bg-clinical-blue h-full rounded-full transition-all duration-1000" style="width: 0%"></div>
-                    </div>
-                    <div class="text-right mt-1">
-                        <span class="text-[9px] uppercase tracking-widest text-slate-500" id="remote-mode">Esperando estado...</span>
-                    </div>
-
-                    <!-- Remote Patient Info -->
-                    <div id="remote-patient-container" class="hidden mt-2 p-2 bg-slate-800/60 rounded border border-slate-700/80 flex items-center gap-3">
-                        <div class="text-xl shrink-0" id="remote-patient-sprite">🤕</div>
-                        <div class="flex-grow">
-                            <div class="flex justify-between items-center mb-1">
-                                <span class="text-[9px] text-slate-300 font-bold uppercase tracking-wide">Pte <span id="remote-patient-id">#101</span></span>
-                                <span class="text-[9px] font-mono font-bold text-clinical-green" id="remote-patient-hp-text">100/100</span>
-                            </div>
-                            <div class="w-full bg-slate-900 rounded-full h-1.5 border border-slate-700">
-                                <div class="bg-clinical-green h-1.5 rounded-full transition-all duration-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" id="remote-patient-hp-bar" style="width: 100%"></div>
-                            </div>
-                        </div>
-                    </div>
-
+                <!-- Connected Peers Monitor (multi-peer) -->
+                <div id="peers-container" class="flex flex-col gap-3 mt-2 pt-4 border-t border-slate-700/50">
+                    <!-- Remote peer cards injected dynamically -->
                 </div>
             </section>
 
@@ -2785,7 +2750,7 @@
                     }
 
                     // Achievement: Telemedicina
-                    if (peerConnection && peerConnection.open) {
+                    if (peerConnections.size > 0) {
                         state.achievements.telemedicineHours = (state.achievements.telemedicineHours || 0) + (1/60);
                     }
                     
@@ -4413,7 +4378,8 @@
 
         // --- MULTIPLAYER (PEERJS) ---
         let peer = null;
-        let peerConnection = null;
+        let peerConnections = new Map(); // peerId → DataConnection
+        let remoteStates = new Map();    // peerId → last state_sync payload
 
         const peerEls = {
             statusTxt: document.getElementById('peer-status-text'),
@@ -4430,22 +4396,7 @@
             avatarUpload: document.getElementById('my-avatar-upload'),
             myAvatarImg: document.getElementById('my-avatar-img'),
             
-            card: document.getElementById('remote-peer-card'),
-            remoteName: document.getElementById('remote-name'),
-            remoteAvatarImg: document.getElementById('remote-avatar-img'),
-            remoteAvatarIcon: document.getElementById('remote-avatar-icon'),
-            timer: document.getElementById('remote-timer'),
-            subject: document.getElementById('remote-subject'),
-            hours: document.getElementById('remote-hours'),
-            progressBar: document.getElementById('remote-progress-bar'),
-            mode: document.getElementById('remote-mode'),
-            
-            // Remote patient
-            remotePatientContainer: document.getElementById('remote-patient-container'),
-            remotePatientSprite: document.getElementById('remote-patient-sprite'),
-            remotePatientId: document.getElementById('remote-patient-id'),
-            remotePatientHpText: document.getElementById('remote-patient-hp-text'),
-            remotePatientHpBar: document.getElementById('remote-patient-hp-bar'),
+            peersContainer: document.getElementById('peers-container'),
             
             chatContainer: document.getElementById('floating-chat-widget'),
             chatWindow: document.getElementById('chat-window'),
@@ -4668,7 +4619,7 @@
         const fuerzasInput = document.getElementById('fuerzas-input');
         if (btnFuerzas) {
             btnFuerzas.addEventListener('click', () => {
-                if (!peerConnection || btnFuerzas.disabled) return;
+                if (peerConnections.size === 0 || btnFuerzas.disabled) return;
                 
                 const customMsg = (fuerzasInput ? fuerzasInput.value.trim() : '') || '¡Fuerzas! 💪';
 
@@ -4680,7 +4631,9 @@
                 
                 const myName = peerEls.nameInput.value.trim() || 'Un colega';
                 
-                peerConnection.send({ type: 'fuerzas', sender: myName, message: customMsg });
+                peerConnections.forEach((conn) => {
+                    if (conn.open) conn.send({ type: 'fuerzas', sender: myName, message: customMsg });
+                });
                 
                 setTimeout(() => {
                     btnFuerzas.disabled = false;
@@ -4760,12 +4713,13 @@
 
                 peer.on('open', (id) => {
                     peerEls.myIdInput.value = id;
-                    updatePeerUI('standby');
+                    updatePeerLed();
 
                     const friendId = safeGet('cf_partnerPeerId', '');
                     if (friendId) {
                         setTimeout(() => {
-                            updatePeerUI('connecting');
+                            peerEls.statusTxt.textContent = 'Conectando...'; 
+                            peerEls.led.className = 'w-2.5 h-2.5 rounded-full bg-clinical-blue animate-pulse transition-all duration-300';
                             const conn = peer.connect(friendId, { reliable: true });
                             conn.on('open', () => setupPeerConnection(conn));
                         }, 500); // slight delay to ensure peerjs backend is fully ready
@@ -4777,7 +4731,7 @@
                 });
                 
                 peer.on('disconnected', () => {
-                    updatePeerUI('standby');
+                    updatePeerLed();
                     peer.reconnect();
                 });
 
@@ -4788,7 +4742,7 @@
                         setTimeout(initPeer, 1000);
                     } else if (err.type === 'peer-unavailable') {
                         console.log('Colega no encontrado para auto-reconexión.');
-                        updatePeerUI('standby');
+                        updatePeerLed();
                     }
                 });
             } catch(e) {
@@ -4796,29 +4750,112 @@
             }
         }
 
+        function createPeerCard(peerId, initialName) {
+            const card = document.createElement('div');
+            card.id = `peer-card-${peerId}`;
+            card.className = 'flex flex-col gap-2 bg-slate-800/30 rounded-lg p-3 border border-slate-700/50 animate-fade-in';
+            const safeName = (initialName || 'Colega').substring(0, 30);
+            card.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <img id="remote-avatar-img-${peerId}" class="w-6 h-6 rounded-full object-cover border border-slate-600 hidden" alt="Avatar">
+                        <i id="remote-avatar-icon-${peerId}" class="fa-solid fa-user-doctor text-slate-400"></i>
+                        <span id="remote-name-${peerId}" class="text-xs font-bold text-white truncate max-w-[100px]">${safeName}</span>
+                        <span id="remote-badges-${peerId}" class="text-sm tracking-widest ml-1"></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="text-xs font-mono font-bold" id="remote-timer-${peerId}">00:00</div>
+                        <button class="text-slate-500 hover:text-clinical-red transition text-xs" title="Desconectar" onclick="disconnectPeer('${peerId}')">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center mt-1">
+                    <div class="text-[10px] bg-clinical-blue/20 text-clinical-blue px-2 py-0.5 rounded border border-clinical-blue/30" id="remote-subject-${peerId}">Sin Materia</div>
+                    <div class="text-[10px] text-slate-400"><span id="remote-hours-${peerId}" class="text-clinical-green font-semibold">0.0</span> hrs hoy</div>
+                </div>
+                <div class="w-full bg-slate-800 rounded-full h-1.5 border border-slate-700">
+                    <div id="remote-progress-bar-${peerId}" class="bg-clinical-blue h-full rounded-full transition-all duration-1000" style="width: 0%"></div>
+                </div>
+                <div class="text-right">
+                    <span class="text-[9px] uppercase tracking-widest text-slate-500" id="remote-mode-${peerId}">Esperando...</span>
+                </div>
+                <div id="remote-patient-container-${peerId}" class="hidden mt-1 p-2 bg-slate-800/60 rounded border border-slate-700/80 flex items-center gap-3">
+                    <div class="text-xl shrink-0" id="remote-patient-sprite-${peerId}">🤕</div>
+                    <div class="flex-grow">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[9px] text-slate-300 font-bold uppercase tracking-wide">Pte <span id="remote-patient-id-${peerId}">#101</span></span>
+                            <span class="text-[9px] font-mono font-bold text-clinical-green" id="remote-patient-hp-text-${peerId}">100/100</span>
+                        </div>
+                        <div class="w-full bg-slate-900 rounded-full h-1.5 border border-slate-700">
+                            <div class="bg-clinical-green h-1.5 rounded-full transition-all duration-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" id="remote-patient-hp-bar-${peerId}" style="width: 100%"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return card;
+        }
+
+        window.disconnectPeer = function(peerId) {
+            const conn = peerConnections.get(peerId);
+            if (conn && conn.open) conn.close();
+        };
+
+        function removePeerCard(peerId) {
+            peerConnections.delete(peerId);
+            remoteStates.delete(peerId);
+            const card = document.getElementById(`peer-card-${peerId}`);
+            if (card) card.remove();
+            updatePeerLed();
+            if (peerConnections.size === 0) {
+                peerEls.chatContainer.classList.add('hidden');
+                isChatOpen = false;
+            }
+        }
+
+        function updatePeerLed() {
+            const count = peerConnections.size;
+            if (count === 0) {
+                peerEls.statusTxt.textContent = 'Standby';
+                peerEls.led.className = 'w-2.5 h-2.5 rounded-full bg-clinical-yellow shadow-[0_0_8px_rgba(234,179,8,0.6)] transition-all duration-300';
+            } else {
+                peerEls.statusTxt.textContent = `${count} colega${count > 1 ? 's' : ''}`;
+                peerEls.led.className = 'w-2.5 h-2.5 rounded-full bg-clinical-green shadow-[0_0_8px_rgba(16,185,129,0.6)] transition-all duration-300';
+            }
+        }
+
         function setupPeerConnection(conn) {
-            // Achievements Social
+            const peerId = conn.peer;
+
             if (!state.achievements) state.achievements = { unlockedIds: [] };
             state.achievements.connectedFirstPeer = true;
-            
-            if (peerConnection && peerConnection.open) {
-                // If we are replacing an existing open connection, we had a "Junta Médica"!
-                state.achievements.juntaMedicaUnlocked = true;
-                peerConnection.close();
-            }
+            if (peerConnections.size >= 1) state.achievements.juntaMedicaUnlocked = true;
             checkAchievements();
 
-            peerConnection = conn;
-            
-            // Guardar automáticamente el código de destino exitoso
-            safeSet('cf_partnerPeerId', conn.peer);
-            
-            updatePeerUI('connected');
-            peerEls.remoteAvatarImg.classList.remove('opacity-50', 'grayscale');
+            if (peerConnections.has(peerId)) {
+                const old = peerConnections.get(peerId);
+                if (old.open) old.close();
+                const oldCard = document.getElementById(`peer-card-${peerId}`);
+                if (oldCard) oldCard.remove();
+            }
+
+            peerConnections.set(peerId, conn);
+            safeSet('cf_partnerPeerId', peerId);
+
+            const card = createPeerCard(peerId, 'Colega');
+            peerEls.peersContainer.appendChild(card);
+
+            updatePeerLed();
+
+            peerEls.chatContainer.classList.remove('hidden');
+            peerEls.chatFab.classList.remove('hidden', 'scale-0');
+
+            broadcastState();
 
             conn.on('data', (data) => {
                 if (data.type === 'state_sync') {
-                    renderRemoteState(data.payload);
+                    remoteStates.set(peerId, data.payload);
+                    renderRemoteState(peerId, data.payload);
                 } else if (data.type === 'chat') {
                     appendChatMessage(data.sender || 'Amigo', data.text, false);
                 } else if (data.type === 'image') {
@@ -4833,11 +4870,15 @@
             });
 
             conn.on('close', () => {
-                peerConnection = null;
-                updatePeerUI('standby');
-                peerEls.mode.textContent = 'De vacaciones 🌴';
-                peerEls.mode.className = 'text-[9px] uppercase tracking-widest text-slate-500 font-bold';
-                peerEls.remoteAvatarImg.classList.add('opacity-50', 'grayscale');
+                const savedState = remoteStates.get(peerId);
+                const name = (savedState && savedState.name) ? savedState.name : peerId;
+                removePeerCard(peerId);
+                appendChatMessage('Sistema', `${name} se desconectó`, false);
+            });
+
+            conn.on('error', (err) => {
+                console.error(`Peer ${peerId} error:`, err);
+                removePeerCard(peerId);
             });
         }
 
@@ -4860,9 +4901,11 @@
         peerEls.chatForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const text = peerEls.chatInput.value.trim();
-            if(text && peerConnection) {
+            if(text && peerConnections.size > 0) {
                 const myName = peerEls.nameInput.value.trim() || 'Yo';
-                peerConnection.send({ type: 'chat', text: text, sender: myName });
+                peerConnections.forEach((conn) => {
+                    if (conn.open) conn.send({ type: 'chat', text, sender: myName });
+                });
                 appendChatMessage(myName, text, true);
                 peerEls.chatInput.value = '';
             }
@@ -4925,9 +4968,11 @@
 
         /** Send a sticker/image to the connected peer and show it locally */
         function sendImageSticker(dataUrl) {
-            if (!peerConnection || !peerConnection.open) return;
+            if (peerConnections.size === 0) return;
             const myName = peerEls.nameInput.value.trim() || 'Yo';
-            peerConnection.send({ type: 'image', dataUrl, sender: myName });
+            peerConnections.forEach((conn) => {
+                if (conn.open) conn.send({ type: 'image', dataUrl, sender: myName });
+            });
             appendChatImage(myName, dataUrl, true);
             // Close picker after sending
             closeStickerPicker();
@@ -5004,34 +5049,9 @@
         // Initial render (in case picker was left open by state)
         renderStickerGrid();
 
-        function updatePeerUI(status) {
-            if (status === 'standby') {
-                peerEls.statusTxt.textContent = "Standby";
-                peerEls.led.className = "w-2.5 h-2.5 rounded-full bg-clinical-yellow shadow-[0_0_8px_rgba(234,179,8,0.6)] transition-all duration-300";
-                peerEls.btnConnect.disabled = false;
-                peerEls.friendInput.disabled = false;
-                peerEls.chatContainer.classList.add('hidden');
-                isChatOpen = false;
-            } else if (status === 'connecting') {
-                peerEls.statusTxt.textContent = "Conectando...";
-                peerEls.led.className = "w-2.5 h-2.5 rounded-full bg-clinical-blue animate-pulse transition-all duration-300";
-                peerEls.btnConnect.disabled = true;
-                peerEls.friendInput.disabled = true;
-            } else if (status === 'connected') {
-                peerEls.statusTxt.textContent = "En línea";
-                peerEls.led.className = "w-2.5 h-2.5 rounded-full bg-clinical-green shadow-[0_0_8px_rgba(16,185,129,0.6)] transition-all duration-300";
-                peerEls.card.classList.remove('hidden');
-                peerEls.card.classList.add('flex');
-                peerEls.btnConnect.disabled = false;
-                peerEls.friendInput.disabled = false;
-                peerEls.chatContainer.classList.remove('hidden');
-                peerEls.chatFab.classList.remove('hidden', 'scale-0');
-            }
-        }
-
         function broadcastState() {
-            if (!peerConnection || !peerConnection.open) return;
-            
+            if (peerConnections.size === 0) return;
+
             let activeSubName = 'Descanso';
             if (state.timer.mode === 'study') {
                 const sub = state.subjects.find(s => s.id === state.timer.activeSubjectId);
@@ -5041,98 +5061,118 @@
             const payload = {
                 name: peerEls.nameInput.value || 'Colega',
                 avatar: peerEls.myAvatarImg.src,
-                mode: state.timer.mode, 
+                mode: state.timer.mode,
                 timeLeft: state.timer.timeLeft,
                 totalTime: state.config.times[state.timer.mode === 'short-break' ? 'shortBreak' : (state.timer.mode === 'long-break' ? 'longBreak' : 'study')] * 60,
                 subject: activeSubName,
                 hours: state.stats.hoursToday.toFixed(1),
                 isRunning: state.timer.isRunning,
-                
-                // Patient Data
                 patientActive: state.game.active,
                 patientId: state.game.patientId,
                 patientHealth: state.game.health,
                 patientPhase: state.game.phase,
-                // Top 3 achievement badges for social display
                 badges: (() => {
                     if (!state.achievements || !state.achievements.unlockedIds) return [];
-                    return [...state.achievements.unlockedIds].sort((a,b) => {
-                        const rarityA = ACHIEVEMENT_DEFS.find(d=>d.id===a)?.rarity || 0;
-                        const rarityB = ACHIEVEMENT_DEFS.find(d=>d.id===b)?.rarity || 0;
-                        return rarityB - rarityA; // Descending order
+                    return [...state.achievements.unlockedIds].sort((a, b) => {
+                        const rarityA = ACHIEVEMENT_DEFS.find(d => d.id === a)?.rarity || 0;
+                        const rarityB = ACHIEVEMENT_DEFS.find(d => d.id === b)?.rarity || 0;
+                        return rarityB - rarityA;
                     }).slice(0, 3);
                 })()
             };
 
-            peerConnection.send({ type: 'state_sync', payload });
+            peerConnections.forEach((conn) => {
+                if (conn.open) conn.send({ type: 'state_sync', payload });
+            });
         }
 
-        function renderRemoteState(p) {
+        function renderRemoteState(peerId, p) {
+            const nameEl = document.getElementById(`remote-name-${peerId}`);
             const newName = p.name || 'Colega';
-            if (peerEls.remoteName.textContent !== newName) peerEls.remoteName.textContent = newName;
-            
-            // Render remote badges
-            const remoteBadgesEl = document.getElementById('remote-badges');
+            if (nameEl && nameEl.textContent !== newName) nameEl.textContent = newName;
+
+            const remoteBadgesEl = document.getElementById(`remote-badges-${peerId}`);
             if (remoteBadgesEl && p.badges && Array.isArray(p.badges)) {
-                remoteBadgesEl.textContent = p.badges.map(id => { const def = ACHIEVEMENT_DEFS.find(d=>d.id===id); return def ? def.emoji : ''; }).join('');
-                remoteBadgesEl.title = p.badges.length ? 'Logros: ' + p.badges.map(id => { const def = ACHIEVEMENT_DEFS.find(d=>d.id===id); return def ? def.name : id; }).join(', ') : '';
-            }
-            
-            if (p.avatar && p.avatar.startsWith('data:image')) {
-                if (peerEls.remoteAvatarImg.src !== p.avatar) peerEls.remoteAvatarImg.src = p.avatar;
-                peerEls.remoteAvatarImg.classList.remove('hidden');
-                peerEls.remoteAvatarIcon.classList.add('hidden');
-            } else {
-                peerEls.remoteAvatarImg.classList.add('hidden');
-                peerEls.remoteAvatarIcon.classList.remove('hidden');
+                remoteBadgesEl.textContent = p.badges.map(id => {
+                    const def = ACHIEVEMENT_DEFS.find(d => d.id === id);
+                    return def ? def.emoji : '';
+                }).join('');
             }
 
+            const remoteAvatarImg = document.getElementById(`remote-avatar-img-${peerId}`);
+            const remoteAvatarIcon = document.getElementById(`remote-avatar-icon-${peerId}`);
+            if (remoteAvatarImg) {
+                if (p.avatar && p.avatar.startsWith('data:image')) {
+                    if (remoteAvatarImg.src !== p.avatar) remoteAvatarImg.src = p.avatar;
+                    remoteAvatarImg.classList.remove('hidden');
+                    if (remoteAvatarIcon) remoteAvatarIcon.classList.add('hidden');
+                } else {
+                    remoteAvatarImg.classList.add('hidden');
+                    if (remoteAvatarIcon) remoteAvatarIcon.classList.remove('hidden');
+                }
+            }
+
+            const timerEl = document.getElementById(`remote-timer-${peerId}`);
             const newTime = formatTime(p.timeLeft);
-            if (peerEls.timer.textContent !== newTime) peerEls.timer.textContent = newTime;
-            
-            if (peerEls.subject.textContent !== p.subject) peerEls.subject.textContent = p.subject;
-            
+            if (timerEl && timerEl.textContent !== newTime) timerEl.textContent = newTime;
+
+            const subjectEl = document.getElementById(`remote-subject-${peerId}`);
+            if (subjectEl && subjectEl.textContent !== p.subject) subjectEl.textContent = p.subject;
+
+            const hoursEl = document.getElementById(`remote-hours-${peerId}`);
             const newHours = String(p.hours);
-            if (peerEls.hours.textContent !== newHours) peerEls.hours.textContent = newHours;
-            
-            const total = Math.max(1, p.totalTime);
-            const progPct = ((total - p.timeLeft) / total) * 100;
-            const newWidth = `${progPct}%`;
-            if (peerEls.progressBar.style.width !== newWidth) peerEls.progressBar.style.width = newWidth;
-            
+            if (hoursEl && hoursEl.textContent !== newHours) hoursEl.textContent = newHours;
+
+            const progressBar = document.getElementById(`remote-progress-bar-${peerId}`);
+            if (progressBar) {
+                const total = Math.max(1, p.totalTime);
+                const progPct = ((total - p.timeLeft) / total) * 100;
+                const newWidth = `${progPct}%`;
+                if (progressBar.style.width !== newWidth) progressBar.style.width = newWidth;
+            }
+
             const isStudy = p.mode === 'study';
             let modeTxt = isStudy ? 'EN GUARDIA' : 'EN DESCANSO';
             if (!p.isRunning) modeTxt = 'PAUSADO';
-            
-            peerEls.timer.className = `text-xs font-mono font-bold ${!p.isRunning ? 'text-slate-500' : (isStudy ? 'text-white' : 'text-slate-400')}`;
-            peerEls.subject.className = `text-[10px] px-2 py-0.5 rounded border ${isStudy ? 'bg-clinical-blue/20 text-clinical-blue border-clinical-blue/30' : 'bg-slate-700/50 text-slate-400 border-slate-600'}`;
-            peerEls.progressBar.className = `h-full rounded-full transition-all duration-1000 ${isStudy ? 'bg-clinical-blue' : 'bg-slate-500'}`;
-            peerEls.mode.textContent = modeTxt;
-            peerEls.mode.className = `text-[9px] uppercase tracking-widest ${isStudy && p.isRunning ? 'text-clinical-blue animate-pulse' : 'text-slate-500'}`;
 
-            // Patient rendering
-            if (p.patientActive) {
-                peerEls.remotePatientContainer.classList.remove('hidden');
-                peerEls.remotePatientId.textContent = p.patientId;
-                peerEls.remotePatientHpText.textContent = `${p.patientHealth}/100`;
-                peerEls.remotePatientHpBar.style.width = `${p.patientHealth}%`;
-                
-                if (p.patientHealth > 50) {
-                    peerEls.remotePatientHpBar.className = "bg-clinical-green h-1.5 rounded-full transition-all duration-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]";
-                    peerEls.remotePatientHpText.className = "text-[9px] font-mono font-bold text-clinical-green";
-                } else if (p.patientHealth > 20) {
-                    peerEls.remotePatientHpBar.className = "bg-clinical-yellow h-1.5 rounded-full transition-all duration-500 shadow-[0_0_5px_rgba(234,179,8,0.5)]";
-                    peerEls.remotePatientHpText.className = "text-[9px] font-mono font-bold text-clinical-yellow";
+            if (timerEl) timerEl.className = `text-xs font-mono font-bold ${!p.isRunning ? 'text-slate-500' : (isStudy ? 'text-white' : 'text-slate-400')}`;
+            if (subjectEl) subjectEl.className = `text-[10px] px-2 py-0.5 rounded border ${isStudy ? 'bg-clinical-blue/20 text-clinical-blue border-clinical-blue/30' : 'bg-slate-700/50 text-slate-400 border-slate-600'}`;
+            if (progressBar) progressBar.className = `h-full rounded-full transition-all duration-1000 ${isStudy ? 'bg-clinical-blue' : 'bg-slate-500'}`;
+
+            const modeEl = document.getElementById(`remote-mode-${peerId}`);
+            if (modeEl) {
+                modeEl.textContent = modeTxt;
+                modeEl.className = `text-[9px] uppercase tracking-widest ${isStudy && p.isRunning ? 'text-clinical-blue animate-pulse' : 'text-slate-500'}`;
+            }
+
+            const patientContainer = document.getElementById(`remote-patient-container-${peerId}`);
+            if (patientContainer) {
+                if (p.patientActive) {
+                    patientContainer.classList.remove('hidden');
+                    const patientIdEl = document.getElementById(`remote-patient-id-${peerId}`);
+                    const hpText = document.getElementById(`remote-patient-hp-text-${peerId}`);
+                    const hpBar = document.getElementById(`remote-patient-hp-bar-${peerId}`);
+                    const sprite = document.getElementById(`remote-patient-sprite-${peerId}`);
+                    if (patientIdEl) patientIdEl.textContent = p.patientId;
+                    if (hpText) hpText.textContent = `${p.patientHealth}/100`;
+                    if (hpBar) hpBar.style.width = `${p.patientHealth}%`;
+                    if (hpText && hpBar) {
+                        if (p.patientHealth > 50) {
+                            hpBar.className = 'bg-clinical-green h-1.5 rounded-full transition-all duration-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]';
+                            hpText.className = 'text-[9px] font-mono font-bold text-clinical-green';
+                        } else if (p.patientHealth > 20) {
+                            hpBar.className = 'bg-clinical-yellow h-1.5 rounded-full transition-all duration-500 shadow-[0_0_5px_rgba(234,179,8,0.5)]';
+                            hpText.className = 'text-[9px] font-mono font-bold text-clinical-yellow';
+                        } else {
+                            hpBar.className = 'bg-clinical-red h-1.5 rounded-full transition-all duration-500 shadow-[0_0_5px_rgba(244,63,94,0.5)] animate-pulse';
+                            hpText.className = 'text-[9px] font-mono font-bold text-clinical-red animate-pulse';
+                        }
+                    }
+                    const sprites = ['🤒','🤒','🤢','😵','😪'];
+                    if (sprite) sprite.textContent = sprites[p.patientPhase] || '🤒';
                 } else {
-                    peerEls.remotePatientHpBar.className = "bg-clinical-red h-1.5 rounded-full transition-all duration-500 shadow-[0_0_5px_rgba(244,63,94,0.5)] animate-pulse";
-                    peerEls.remotePatientHpText.className = "text-[9px] font-mono font-bold text-clinical-red animate-pulse";
+                    patientContainer.classList.add('hidden');
                 }
-
-                // Sprite
-                const sprites = ['🤒', '🤕', '🤢', '😵', '😪'];
-                peerEls.remotePatientSprite.textContent = sprites[p.patientPhase] || '🤒';
-            } else {
-                peerEls.remotePatientContainer.classList.add('hidden');
             }
         }
 
@@ -5147,12 +5187,20 @@
         peerEls.btnConnect.addEventListener('click', () => {
             const friendId = peerEls.friendInput.value.trim();
             if (!friendId) return;
-            
-            updatePeerUI('connecting');
+            if (peerConnections.has(friendId)) {
+                peerEls.friendInput.value = '';
+                return;
+            }
+            peerEls.statusTxt.textContent = 'Conectando...';
+            peerEls.led.className = 'w-2.5 h-2.5 rounded-full bg-clinical-blue animate-pulse transition-all duration-300';
             const conn = peer.connect(friendId, { reliable: true });
-            
             conn.on('open', () => {
                 setupPeerConnection(conn);
+                peerEls.friendInput.value = '';
+            });
+            conn.on('error', (err) => {
+                console.error('Connection error:', err);
+                updatePeerLed();
             });
         });
         
@@ -5177,9 +5225,7 @@
 
         // Gracefully close connection to avoid ghost peers
         window.addEventListener('beforeunload', () => {
-            if (peerConnection && peerConnection.open) {
-                peerConnection.close();
-            }
+            peerConnections.forEach((conn) => { if (conn.open) conn.close(); });
             if (peer) {
                 peer.destroy();
             }
