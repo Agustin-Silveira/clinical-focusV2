@@ -4932,7 +4932,7 @@
                 const savedState = remoteStates.get(peerId);
                 const name = (savedState && savedState.name) ? savedState.name : peerId;
                 removePeerCard(peerId);
-                appendChatMessage('Sistema', `${name} se desconectó`, false);
+                appendChatMessage('Sistema', `${name} se desconectó`, false, true);
             });
 
             conn.on('error', (err) => {
@@ -4943,7 +4943,7 @@
             });
         }
 
-        function appendChatMessage(sender, text, isMe) {
+        function appendChatMessage(sender, text, isMe, silent = false) {
             const div = document.createElement('div');
             div.className = `flex ${isMe ? 'justify-end' : 'justify-start'} animate-fade-in`;
             const bgColor = isMe ? 'var(--chat-me)' : 'var(--chat-them)';
@@ -4952,7 +4952,7 @@
             peerEls.chatMessages.appendChild(div);
             peerEls.chatMessages.scrollTo({ top: peerEls.chatMessages.scrollHeight, behavior: 'smooth' });
 
-            if(!isMe && !isChatOpen) {
+            if(!isMe && !isChatOpen && !silent) {
                 unreadChatCount++;
                 updateChatBadge();
                 playPagerSound();
