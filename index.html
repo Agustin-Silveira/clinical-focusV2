@@ -4473,7 +4473,7 @@
                     inputEl.value = color;
                     if (type && chatColors[type] !== undefined) {
                         chatColors[type] = color;
-                        safeSet('cf_chatColors', chatColors);
+                        safeSet('cf_chatColors', JSON.stringify(chatColors));
                         applyChatColors();
                     }
                     renderPalette(containerId, inputEl, colorList, color, type);
@@ -4704,6 +4704,12 @@
                     console.warn("PeerJS library not loaded");
                     return;
                 }
+                // Guard: destroy existing peer before re-initializing
+                if (peer && !peer.destroyed) {
+                    try { peer.destroy(); } catch(e) {}
+                    peer = null;
+                }
+
                 const savedId = safeGet('cf_myPeerId', null) || generateShortId();
                 safeSet('cf_myPeerId', savedId);
 
@@ -4731,6 +4737,8 @@
                             peerEls.led.className = 'w-2.5 h-2.5 rounded-full bg-clinical-blue animate-pulse transition-all duration-300';
                             const conn = peer.connect(friendId, { reliable: true });
                             conn.on('open', () => setupPeerConnection(conn));
+                            // If auto-connect fails, restore LED to standby
+                            conn.on('error', () => updatePeerLed());
                         }, 500); // slight delay to ensure peerjs backend is fully ready
                     }
                 });
@@ -4740,20 +4748,23 @@
                 });
                 
                 peer.on('disconnected', () => {
+                    if (peer.destroyed) return;
                     // Re-connect to the signaling server
                     peer.reconnect();
                     // After reconnecting, wait briefly then re-establish data channels
                     // with all peers we were connected to (they are dropped on disconnect)
                     setTimeout(() => {
+                        if (peer.destroyed) return;
                         const previousPeers = [...peerConnections.keys()];
-                        // Clear the old broken connections
-                        peerConnections.forEach((conn) => { try { conn.close(); } catch(e) {} });
+                        // Clear the old broken connections AND their DOM cards
+                        peerConnections.forEach((_, pid) => removePeerCard(pid));
                         peerConnections.clear();
                         // Reconnect to each one
                         previousPeers.forEach((pid) => {
                             try {
                                 const conn = peer.connect(pid, { reliable: true });
                                 conn.on('open', () => setupPeerConnection(conn));
+                                conn.on('error', () => {});
                             } catch(e) {}
                         });
                     }, 1500);
@@ -4766,6 +4777,8 @@
                         setTimeout(initPeer, 1000);
                     } else if (err.type === 'peer-unavailable') {
                         console.log('Colega no encontrado para auto-reconexión.');
+                        updatePeerLed();
+                    } else if (err.type === 'network' || err.type === 'server-error') {
                         updatePeerLed();
                     }
                 });
@@ -4822,7 +4835,11 @@
 
         window.disconnectPeer = function(peerId) {
             const conn = peerConnections.get(peerId);
-            if (conn && conn.open) conn.close();
+            if (conn) {
+                try { if (conn.open) conn.close(); } catch(e) {}
+            }
+            // Always clean up card immediately — 'close' event may not fire
+            removePeerCard(peerId);
         };
 
         function removePeerCard(peerId) {
@@ -4834,6 +4851,9 @@
             if (peerConnections.size === 0) {
                 peerEls.chatContainer.classList.add('hidden');
                 isChatOpen = false;
+                // Reset unread badge — no peers left to chat with
+                unreadChatCount = 0;
+                updateChatBadge();
             }
         }
 
@@ -4851,11 +4871,7 @@
         function setupPeerConnection(conn) {
             const peerId = conn.peer;
 
-            if (!state.achievements) state.achievements = { unlockedIds: [] };
-            state.achievements.connectedFirstPeer = true;
-            if (peerConnections.size >= 1) state.achievements.juntaMedicaUnlocked = true;
-            checkAchievements();
-
+            // ── Deduplicate: close any existing connection for this peer ──────
             if (peerConnections.has(peerId)) {
                 const old = peerConnections.get(peerId);
                 try { if (old.open) old.close(); } catch(e) {}
@@ -4865,6 +4881,12 @@
 
             peerConnections.set(peerId, conn);
             safeSet('cf_partnerPeerId', peerId);
+
+            // ── Achievements (counted after dedup to avoid false positives) ───
+            if (!state.achievements) state.achievements = { unlockedIds: [] };
+            state.achievements.connectedFirstPeer = true;
+            if (peerConnections.size >= 2) state.achievements.juntaMedicaUnlocked = true;
+            checkAchievements();
 
             const card = createPeerCard(peerId, 'Colega');
             peerEls.peersContainer.appendChild(card);
@@ -4897,24 +4919,30 @@
                     const savedState = remoteStates.get(peerId);
                     const name = (savedState && savedState.name) ? savedState.name : 'Colega';
                     removePeerCard(peerId);
-                    appendChatMessage('Sistema', `Reconectando con ${name}...`, false);
+                    appendChatMessage('Sistema', `Reconectando con ${name}...`, false, true);
                     try {
                         const newConn = peer.connect(peerId, { reliable: true });
                         newConn.on('open', () => setupPeerConnection(newConn));
                         newConn.on('error', () => {
-                            appendChatMessage('Sistema', `No se pudo reconectar con ${name}`, false);
+                            appendChatMessage('Sistema', `No se pudo reconectar con ${name}`, false, true);
                         });
                     } catch(e) {}
                 }
             }, 15000);
 
             conn.on('data', (data) => {
+                // Validate incoming data structure to avoid crashes on malformed messages
+                if (!data || typeof data !== 'object' || !data.type) return;
                 if (data.type === 'ping') return; // ignore keepalive pings
                 if (data.type === 'state_sync') {
-                    remoteStates.set(peerId, data.payload);
-                    renderRemoteState(peerId, data.payload);
+                    if (data.payload && typeof data.payload === 'object') {
+                        remoteStates.set(peerId, data.payload);
+                        renderRemoteState(peerId, data.payload);
+                    }
                 } else if (data.type === 'chat') {
-                    appendChatMessage(data.sender || 'Amigo', data.text, false);
+                    if (typeof data.text === 'string') {
+                        appendChatMessage(data.sender || 'Amigo', data.text, false);
+                    }
                 } else if (data.type === 'image') {
                     appendChatImage(data.sender || 'Amigo', data.dataUrl, false);
                 } else if (data.type === 'fuerzas') {
@@ -4948,7 +4976,16 @@
             div.className = `flex ${isMe ? 'justify-end' : 'justify-start'} animate-fade-in`;
             const bgColor = isMe ? 'var(--chat-me)' : 'var(--chat-them)';
             const textColor = isMe ? '#ffffff' : '#e2e8f0';
-            div.innerHTML = `<span class="px-3 py-2 rounded-2xl max-w-[85%] shadow-md break-words text-xs leading-relaxed" style="background-color: ${bgColor}; color: ${textColor};"><b>${sender}:</b> ${text}</span>`;
+            // Use safe DOM construction to prevent XSS from peer-controlled strings
+            const bubble = document.createElement('span');
+            bubble.className = 'px-3 py-2 rounded-2xl max-w-[85%] shadow-md break-words text-xs leading-relaxed';
+            bubble.style.backgroundColor = bgColor;
+            bubble.style.color = textColor;
+            const bold = document.createElement('b');
+            bold.textContent = sender + ':';
+            bubble.appendChild(bold);
+            bubble.appendChild(document.createTextNode(' ' + text));
+            div.appendChild(bubble);
             peerEls.chatMessages.appendChild(div);
             peerEls.chatMessages.scrollTo({ top: peerEls.chatMessages.scrollHeight, behavior: 'smooth' });
 
@@ -5005,18 +5042,31 @@
 
         /** Append an image bubble to the chat */
         function appendChatImage(sender, dataUrl, isMe) {
+            // Validate dataUrl to prevent XSS via malicious image payloads
+            if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) return;
+
             const div = document.createElement('div');
             div.className = `flex ${isMe ? 'justify-end' : 'justify-start'} animate-fade-in`;
             const align = isMe ? 'items-end' : 'items-start';
-            div.innerHTML = `
-                <div class="flex flex-col gap-0.5 max-w-[70%] ${align}">
-                    <span class="text-[10px] font-semibold ${isMe ? 'text-right text-clinical-blue' : 'text-slate-400'} px-1">${sender}</span>
-                    <img src="${dataUrl}"
-                         class="rounded-xl shadow-lg border border-white/10 object-contain cursor-pointer hover:scale-105 active:scale-95 transition-transform"
-                         style="max-width:100%; max-height:180px;"
-                         title="Sticker de ${sender}"
-                         loading="lazy">
-                </div>`;
+
+            const col = document.createElement('div');
+            col.className = `flex flex-col gap-0.5 max-w-[70%] ${align}`;
+
+            const label = document.createElement('span');
+            label.className = `text-[10px] font-semibold ${isMe ? 'text-right text-clinical-blue' : 'text-slate-400'} px-1`;
+            label.textContent = sender;
+
+            const img = document.createElement('img');
+            img.src = dataUrl;
+            img.className = 'rounded-xl shadow-lg border border-white/10 object-contain cursor-pointer hover:scale-105 active:scale-95 transition-transform';
+            img.style.maxWidth = '100%';
+            img.style.maxHeight = '180px';
+            img.title = `Sticker de ${sender}`;
+            img.loading = 'lazy';
+
+            col.appendChild(label);
+            col.appendChild(img);
+            div.appendChild(col);
             peerEls.chatMessages.appendChild(div);
             peerEls.chatMessages.scrollTo({ top: peerEls.chatMessages.scrollHeight, behavior: 'smooth' });
 
@@ -5121,7 +5171,8 @@
 
             const payload = {
                 name: peerEls.nameInput.value || 'Colega',
-                avatar: peerEls.myAvatarImg.src,
+                // Only transmit avatar if it's actually a data: URI (not a resolved page URL)
+                avatar: peerEls.myAvatarImg.src.startsWith('data:image') ? peerEls.myAvatarImg.src : null,
                 mode: state.timer.mode,
                 timeLeft: state.timer.timeLeft,
                 totalTime: state.config.times[state.timer.mode === 'short-break' ? 'shortBreak' : (state.timer.mode === 'long-break' ? 'longBreak' : 'study')] * 60,
