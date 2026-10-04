@@ -1401,6 +1401,25 @@
                 <div id="sync-status" class="text-xs font-medium mt-3 text-center hidden"></div>
             </div>
 
+            <!-- SALA DE GUARDIA ONLINE -->
+            <div class="mt-8 col-span-1 md:col-span-2 border border-clinical-green/30 bg-clinical-green/5 rounded-lg p-4">
+                <h3 class="text-sm font-medium text-clinical-green uppercase tracking-wide mb-1 flex items-center justify-between">
+                    <span><i class="fa-solid fa-signal mr-2"></i>Sala de Guardia Online</span>
+                    <span class="flex items-center gap-1.5">
+                        <span id="sala-led" class="w-2 h-2 rounded-full bg-slate-600 transition-all duration-500"></span>
+                        <span id="sala-count-txt" class="text-[9px] text-slate-500 uppercase tracking-widest font-bold">Conectando...</span>
+                    </span>
+                </h3>
+                <p class="text-[11px] text-slate-400 mb-4">Todos los usuarios de ClinicalFocus que estén en línea ahora mismo. Podés agregarlos como colegas directamente desde acá.</p>
+
+                <!-- Users grid -->
+                <div id="sala-users-grid" class="flex flex-col gap-2 min-h-[48px]">
+                    <p id="sala-empty-hint" class="text-[11px] text-slate-500 text-center py-3">
+                        <i class="fa-solid fa-spinner fa-spin mr-1"></i> Buscando colegas en línea...
+                    </p>
+                </div>
+            </div>
+
             <div class="mt-8 pt-4 border-t border-slate-700 flex justify-between items-center">
                 <button id="btn-reset-stats" class="text-xs text-clinical-red hover:text-red-400 border border-clinical-red/30 hover:bg-clinical-red/10 px-3 py-2 rounded transition"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Reiniciar Estadísticas</button>
                 <button id="btn-save-config" class="bg-clinical-blue hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-medium shadow-lg transition">Guardar Cambios</button>
@@ -4698,6 +4717,254 @@
             return 'doc-' + Math.random().toString(36).substr(2, 5);
         }
 
+        // ══════════════════════════════════════════════════════════
+        //  SALA DE GUARDIA ONLINE — Directorio P2P de usuarios activos
+        // ══════════════════════════════════════════════════════════
+        const SALA_ROOM_ID = 'cf-sala-guardia-v1';
+        let salaRole = null;          // 'host' | 'member' | null
+        let salaHostConn = null;      // If member: connection to the host
+        let salaMemberConns = new Map(); // If host: map of peerId → conn
+        let salaRegistry = new Map(); // All known online users: peerId → {name, avatar, peerId}
+
+        const salaEls = {
+            led: document.getElementById('sala-led'),
+            countTxt: document.getElementById('sala-count-txt'),
+            grid: document.getElementById('sala-users-grid'),
+            emptyHint: document.getElementById('sala-empty-hint'),
+        };
+
+        /** Build my own presence entry */
+        function mySalaProfile() {
+            return {
+                peerId: peer ? peer.id : null,
+                name: peerEls.nameInput.value.trim() || 'Médico de Guardia',
+                avatar: peerEls.myAvatarImg.src || '',
+            };
+        }
+
+        /** Update the LED indicator in the modal */
+        function updateSalaLed(count) {
+            if (!salaEls.led) return;
+            if (count > 0) {
+                salaEls.led.className = 'w-2 h-2 rounded-full bg-clinical-green shadow-[0_0_6px_rgba(16,185,129,0.8)] transition-all duration-500';
+                salaEls.countTxt.textContent = `${count} en línea`;
+                salaEls.countTxt.className = 'text-[9px] text-clinical-green uppercase tracking-widest font-bold';
+            } else {
+                salaEls.led.className = 'w-2 h-2 rounded-full bg-slate-600 transition-all duration-500';
+                salaEls.countTxt.textContent = 'Sin conexión';
+                salaEls.countTxt.className = 'text-[9px] text-slate-500 uppercase tracking-widest font-bold';
+            }
+        }
+
+        /** Render the user list in the sala grid */
+        function renderSalaGrid() {
+            if (!salaEls.grid) return;
+            const myId = peer ? peer.id : null;
+            const users = [...salaRegistry.values()].filter(u => u.peerId && u.peerId !== myId);
+
+            if (users.length === 0) {
+                salaEls.grid.innerHTML = '<p class="text-[11px] text-slate-500 text-center py-3"><i class="fa-solid fa-user-slash mr-1"></i> No hay otros colegas en línea en este momento.</p>';
+                updateSalaLed(0);
+                return;
+            }
+
+            updateSalaLed(users.length);
+            salaEls.grid.innerHTML = '';
+
+            users.forEach(u => {
+                const isConnected = peerConnections.has(u.peerId);
+                const avatarHtml = (u.avatar && u.avatar.startsWith('data:image'))
+                    ? `<img src="${u.avatar}" class="w-8 h-8 rounded-full object-cover border border-slate-600 shrink-0" alt="">`
+                    : `<div class="w-8 h-8 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center shrink-0"><i class="fa-solid fa-user-doctor text-slate-400 text-xs"></i></div>`;
+
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-3 bg-slate-900/60 rounded-lg px-3 py-2 border border-slate-700/60';
+                row.innerHTML = `
+                    ${avatarHtml}
+                    <div class="flex-grow min-w-0">
+                        <p class="text-xs font-semibold text-white truncate">${u.name || 'Colega'}</p>
+                        <p class="text-[10px] font-mono text-slate-400 truncate">${u.peerId}</p>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button
+                            class="text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white border border-slate-600 px-2 py-1 rounded transition"
+                            title="Copiar código"
+                            onclick="navigator.clipboard.writeText('${u.peerId}').then(()=>{ this.innerHTML='<i class=\\'fa-solid fa-check text-clinical-green\\'></i>'; setTimeout(()=>{ this.innerHTML='<i class=\\'fa-regular fa-copy\\'></i>'; },1800); })">
+                            <i class="fa-regular fa-copy"></i>
+                        </button>
+                        ${isConnected
+                            ? `<span class="text-[10px] text-clinical-green font-semibold px-2 py-1 border border-clinical-green/30 rounded bg-clinical-green/10"><i class="fa-solid fa-check mr-1"></i>Conectado</span>`
+                            : `<button
+                                class="text-[10px] bg-clinical-blue hover:bg-blue-500 text-white px-2 py-1 rounded transition font-medium"
+                                title="Agregar colega"
+                                onclick="window.salaConnectToPeer('${u.peerId}')">
+                                <i class="fa-solid fa-user-plus mr-1"></i>Agregar
+                              </button>`
+                        }
+                    </div>`;
+                salaEls.grid.appendChild(row);
+            });
+        }
+
+        /** Connect to a peer from the sala UI */
+        window.salaConnectToPeer = function(peerId) {
+            if (!peer || peerConnections.has(peerId)) return;
+            peerEls.friendInput.value = peerId;
+            peerEls.btnConnect.click();
+            renderSalaGrid(); // Refresh state immediately
+        };
+
+        /** Broadcast my profile update to the sala */
+        function salaBroadcastProfile() {
+            const profile = mySalaProfile();
+            if (!profile.peerId) return;
+            salaRegistry.set(profile.peerId, profile);
+
+            if (salaRole === 'host') {
+                // Tell all members about the updated registry
+                const list = [...salaRegistry.values()];
+                salaMemberConns.forEach(conn => {
+                    if (conn.open) conn.send({ type: 'sala_list', list });
+                });
+                renderSalaGrid();
+            } else if (salaRole === 'member' && salaHostConn && salaHostConn.open) {
+                salaHostConn.send({ type: 'sala_hello', profile });
+            }
+        }
+
+        /** Set up as the room HOST */
+        /** HOST: receives connections from members on roomPeer (NOT on peer) */
+        function becomeSalaHost(roomPeer) {
+            salaRole = 'host';
+            const myProfile = mySalaProfile();
+            if (myProfile.peerId) salaRegistry.set(myProfile.peerId, myProfile);
+            renderSalaGrid();
+
+            // Listen on roomPeer — members connect to SALA_ROOM_ID which lives HERE
+            roomPeer.on('connection', (conn) => {
+                conn.on('data', (data) => {
+                    if (data.type === 'sala_hello') {
+                        const p = data.profile;
+                        if (!p || !p.peerId) return;
+                        salaMemberConns.set(p.peerId, conn);
+                        salaRegistry.set(p.peerId, p);
+                        // Reply with full list
+                        const list = [...salaRegistry.values()];
+                        if (conn.open) conn.send({ type: 'sala_list', list });
+                        // Push updated list to all other members
+                        salaMemberConns.forEach((c, pid) => {
+                            if (pid !== p.peerId && c.open) c.send({ type: 'sala_list', list });
+                        });
+                        renderSalaGrid();
+                    } else if (data.type === 'sala_profile_update') {
+                        const p = data.profile;
+                        if (p && p.peerId) {
+                            salaRegistry.set(p.peerId, p);
+                            const list = [...salaRegistry.values()];
+                            salaMemberConns.forEach(c => { if (c.open) c.send({ type: 'sala_list', list }); });
+                            renderSalaGrid();
+                        }
+                    }
+                });
+                conn.on('close', () => {
+                    for (const [pid, c] of salaMemberConns) {
+                        if (c === conn) {
+                            salaMemberConns.delete(pid);
+                            salaRegistry.delete(pid);
+                            break;
+                        }
+                    }
+                    const list = [...salaRegistry.values()];
+                    salaMemberConns.forEach(c => { if (c.open) c.send({ type: 'sala_list', list }); });
+                    renderSalaGrid();
+                });
+                conn.on('error', () => { /* handled by close */ });
+            });
+        }
+
+        /** MEMBER: connect to the host that owns SALA_ROOM_ID */
+        function joinSala() {
+            salaRole = 'member';
+            const myProfile = mySalaProfile();
+            if (myProfile.peerId) salaRegistry.set(myProfile.peerId, myProfile);
+
+            // Use our own peer instance to dial the sala room ID
+            const conn = peer.connect(SALA_ROOM_ID, { reliable: true, label: 'sala' });
+            salaHostConn = conn;
+
+            conn.on('open', () => {
+                conn.send({ type: 'sala_hello', profile: myProfile });
+            });
+
+            conn.on('data', (data) => {
+                if (data.type === 'sala_list' && Array.isArray(data.list)) {
+                    salaRegistry.clear();
+                    data.list.forEach(u => { if (u.peerId) salaRegistry.set(u.peerId, u); });
+                    renderSalaGrid();
+                }
+            });
+
+            conn.on('close', () => {
+                // Host left → compete to become the new host
+                salaRole = null;
+                salaHostConn = null;
+                salaMemberConns.clear();
+                setTimeout(() => initSala(), 2000);
+            });
+
+            conn.on('error', () => {
+                salaRole = null;
+                salaHostConn = null;
+                setTimeout(() => initSala(), 3000);
+            });
+        }
+
+        /** Initialize the Sala de Guardia — called automatically on peer open */
+        let salaRoomPeer = null; // Keep reference to avoid GC and enable cleanup
+        function initSala() {
+            if (!peer || peer.destroyed) return;
+            // Clean up any previous room peer
+            if (salaRoomPeer && !salaRoomPeer.destroyed) {
+                try { salaRoomPeer.destroy(); } catch(e) {}
+                salaRoomPeer = null;
+            }
+
+            try {
+                salaRoomPeer = new Peer(SALA_ROOM_ID, {
+                    config: {
+                        iceServers: [
+                            { urls: 'stun:stun.l.google.com:19302' },
+                            { urls: 'stun:stun1.l.google.com:19302' },
+                        ],
+                    },
+                    pingInterval: 5000,
+                });
+            } catch(e) { return; }
+
+            salaRoomPeer.on('open', () => {
+                // We claimed SALA_ROOM_ID → become the host
+                becomeSalaHost(salaRoomPeer);
+            });
+
+            salaRoomPeer.on('error', (err) => {
+                if (err.type === 'unavailable-id') {
+                    // Someone else already holds the room → join as member
+                    joinSala();
+                }
+                // Don't destroy salaRoomPeer here if we became member — it's already useless anyway
+            });
+
+            salaRoomPeer.on('disconnected', () => {
+                try { salaRoomPeer.reconnect(); } catch(e) {}
+            });
+        }
+
+        // Update sala when name changes
+        peerEls.nameInput.addEventListener('input', () => {
+            setTimeout(salaBroadcastProfile, 500);
+        });
+
+
         function initPeer() {
             try {
                 if (typeof Peer === 'undefined') {
@@ -4729,6 +4996,9 @@
                 peer.on('open', (id) => {
                     peerEls.myIdInput.value = id;
                     updatePeerLed();
+
+                    // Start the Sala de Guardia discovery system
+                    setTimeout(initSala, 1000);
 
                     const friendId = safeGet('cf_partnerPeerId', '');
                     if (friendId) {
