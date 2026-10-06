@@ -4671,10 +4671,8 @@
         if (savedPeerAvatar) {
             peerEls.myAvatarImg.src = savedPeerAvatar;
         }
-        const savedFriendId = safeGet('cf_partnerPeerId', '');
-        if (savedFriendId) {
-            peerEls.friendInput.value = savedFriendId;
-        }
+        // Note: friendInput is intentionally left blank on load.
+        // All saved friends reconnect automatically via loadFriendsList().
 
         peerEls.nameInput.addEventListener('input', (e) => {
             safeSet('cf_peerName', e.target.value);
@@ -4717,7 +4715,35 @@
             return 'doc-' + Math.random().toString(36).substr(2, 5);
         }
 
-        // ══════════════════════════════════════════════════════════
+        // ── Friends list persistence ────────────────────────────────────────
+        // Stores ALL friends so they auto-reconnect on every page load.
+        function loadFriendsList() {
+            let list = safeParse('cf_friendsList', null);
+            if (!Array.isArray(list)) {
+                // Migrate from old single-ID storage
+                const legacy = safeGet('cf_partnerPeerId', '');
+                list = legacy ? [legacy] : [];
+                safeSet('cf_friendsList', JSON.stringify(list));
+            }
+            return list.filter(Boolean);
+        }
+
+        function saveFriendToList(peerId) {
+            if (!peerId) return;
+            const list = loadFriendsList();
+            if (!list.includes(peerId)) {
+                list.push(peerId);
+                safeSet('cf_friendsList', JSON.stringify(list));
+            }
+        }
+
+        function removeFriendFromList(peerId) {
+            if (!peerId) return;
+            const list = loadFriendsList().filter(id => id !== peerId);
+            safeSet('cf_friendsList', JSON.stringify(list));
+        }
+
+
         //  SALA DE GUARDIA ONLINE — Directorio P2P de usuarios activos
         // ══════════════════════════════════════════════════════════
         const SALA_ROOM_ID = 'cf-sala-guardia-v1';
@@ -5000,16 +5026,21 @@
                     // Start the Sala de Guardia discovery system
                     setTimeout(initSala, 1000);
 
-                    const friendId = safeGet('cf_partnerPeerId', '');
-                    if (friendId) {
-                        setTimeout(() => {
-                            peerEls.statusTxt.textContent = 'Conectando...'; 
-                            peerEls.led.className = 'w-2.5 h-2.5 rounded-full bg-clinical-blue animate-pulse transition-all duration-300';
-                            const conn = peer.connect(friendId, { reliable: true });
-                            conn.on('open', () => setupPeerConnection(conn));
-                            // If auto-connect fails, restore LED to standby
-                            conn.on('error', () => updatePeerLed());
-                        }, 500); // slight delay to ensure peerjs backend is fully ready
+                    // Auto-reconnect to ALL saved friends
+                    const savedFriends = loadFriendsList();
+                    if (savedFriends.length > 0) {
+                        peerEls.statusTxt.textContent = 'Conectando...';
+                        peerEls.led.className = 'w-2.5 h-2.5 rounded-full bg-clinical-blue animate-pulse transition-all duration-300';
+                        savedFriends.forEach((friendId) => {
+                            setTimeout(() => {
+                                if (!peer || peer.destroyed || peerConnections.has(friendId)) return;
+                                try {
+                                    const conn = peer.connect(friendId, { reliable: true });
+                                    conn.on('open', () => setupPeerConnection(conn));
+                                    conn.on('error', () => updatePeerLed());
+                                } catch(e) {}
+                            }, 600);
+                        });
                     }
                 });
 
@@ -5019,17 +5050,14 @@
                 
                 peer.on('disconnected', () => {
                     if (peer.destroyed) return;
-                    // Re-connect to the signaling server
                     peer.reconnect();
-                    // After reconnecting, wait briefly then re-establish data channels
-                    // with all peers we were connected to (they are dropped on disconnect)
                     setTimeout(() => {
                         if (peer.destroyed) return;
+                        // Capture list BEFORE clearing (removePeerCard clears the Map)
                         const previousPeers = [...peerConnections.keys()];
-                        // Clear the old broken connections AND their DOM cards
-                        peerConnections.forEach((_, pid) => removePeerCard(pid));
-                        peerConnections.clear();
-                        // Reconnect to each one
+                        // Clear broken connections and DOM cards
+                        [...peerConnections.keys()].forEach(pid => removePeerCard(pid));
+                        // Reconnect to everyone we had
                         previousPeers.forEach((pid) => {
                             try {
                                 const conn = peer.connect(pid, { reliable: true });
@@ -5104,6 +5132,8 @@
         }
 
         window.disconnectPeer = function(peerId) {
+            // User explicitly removed this friend → delete from permanent list
+            removeFriendFromList(peerId);
             const conn = peerConnections.get(peerId);
             if (conn) {
                 try { if (conn.open) conn.close(); } catch(e) {}
@@ -5150,7 +5180,7 @@
             }
 
             peerConnections.set(peerId, conn);
-            safeSet('cf_partnerPeerId', peerId);
+            saveFriendToList(peerId); // Remember permanently in friends list
 
             // ── Achievements (counted after dedup to avoid false positives) ───
             if (!state.achievements) state.achievements = { unlockedIds: [] };
@@ -5590,11 +5620,12 @@
         let broadcastTicks = 0;
         let lastBroadcastMode = null;
         let lastBroadcastIsRunning = null;
+        // Broadcast heartbeat — send state to all connected peers every 3s
+        // Always broadcast (not just on phase changes) to keep cards fresh
         setInterval(() => {
             broadcastTicks++;
             const phaseChanged = (state.timer.mode !== lastBroadcastMode) || (state.timer.isRunning !== lastBroadcastIsRunning);
-            
-            if (broadcastTicks >= 5 || phaseChanged) {
+            if (broadcastTicks >= 3 || phaseChanged) {
                 broadcastState();
                 broadcastTicks = 0;
                 lastBroadcastMode = state.timer.mode;
